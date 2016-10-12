@@ -30,6 +30,7 @@ open Ast
 
 program:
   decls EOF { $1 }
+  /*decls EOF { let (vds, fds, sts) = $1 in List.rev vds, List.rev fds, List.rev sts }*/
 
 decls:
     /* nothing */ { [], [], [] }
