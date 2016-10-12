@@ -1,4 +1,4 @@
-/* Ocamlyacc parser for MicroC */
+/* Ocamlyacc parser for easel */
 
 %{
 open Ast
@@ -32,9 +32,10 @@ program:
   decls EOF { $1 }
 
 decls:
-   /* nothing */ { [], [] }
- | decls vdecl { ($2 :: fst $1), snd $1 }
- | decls fdecl { fst $1, ($2 :: snd $1) }
+    /* nothing */ { [], [], [] }
+ | decls vdecl { let (vds, fds, sts) = $1 in ($2 :: vds), fds, sts }
+ | decls fdecl { let (vds, fds, sts) = $1 in vds, ($2 :: fds), sts }
+ | decls stmt { let (vds, fds, sts) = $1 in vds, fds, ($2 :: sts) }
 
 fdecl:
    typ ID LPAREN formals_opt RPAREN LBRACE vdecl_list stmt_list RBRACE
