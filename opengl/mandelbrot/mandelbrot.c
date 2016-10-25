@@ -6,7 +6,7 @@
 #  include <GLUT/glut.h>
 #else
 #  include <GL/glut.h>
-#endif 
+#endif
 
 char *basename(char*);
 void render(void);
@@ -19,7 +19,7 @@ unsigned char blue(int, int);
 unsigned char *easel;
 int W, H;
 
-int main(int argc, char **argv) { 
+int main(int argc, char **argv) {
     // width and height of the window
     W = 960;
     H = 960;
@@ -50,22 +50,22 @@ int main(int argc, char **argv) {
 
 char *basename(char *s)
 {
-    char *cur; 
-    if (s != NULL) { 
+    char *cur;
+    if (s != NULL) {
         cur = s;
         while (*cur != '\0') {
             if (*cur == '/') s = cur + 1;
             cur++;
-        } 
+        }
     }
     return s;
 }
 
 void setpixel(unsigned char *buf, int x, int y, int r, int g, int b)
-{ 
+{
     buf[(y * W + x) * 3 + 0] = r;
     buf[(y * W + x) * 3 + 1] = g;
-    buf[(y * W + x) * 3 + 2] = b; 
+    buf[(y * W + x) * 3 + 2] = b;
 }
 
 // main draw function, gets called over and over, as fast as possible
@@ -83,7 +83,7 @@ void render(void) {
     }
 
     // drawpixels draws the rgb data stored in 'easel' to the screen
-    glDrawPixels(W, H, GL_RGB, GL_UNSIGNED_BYTE, easel); 
+    glDrawPixels(W, H, GL_RGB, GL_UNSIGNED_BYTE, easel);
 
     // in double buffer mode so we swap to avoid a flicker
     glutSwapBuffers();
@@ -92,7 +92,7 @@ void render(void) {
     // glutPostRedisplay();
 }
 
-void keyin(unsigned char k, int x, int y) { 
+void keyin(unsigned char k, int x, int y) {
     printf("in keyin\n");
 
     switch (k) {
@@ -106,11 +106,11 @@ void keyin(unsigned char k, int x, int y) {
         case 'a':
             // 'a' key
             break;
-    } 
+    }
 }
 
 // set some OpenGL state variables
-void myglinit() { 
+void myglinit() {
     glMatrixMode(GL_PROJECTION);
     glLoadIdentity();
 
@@ -118,7 +118,7 @@ void myglinit() {
     glLoadIdentity();
 
     glOrtho(0.0, 1.0, 0.0, 1.0, -1.0, 1.0);
-    glClear(GL_COLOR_BUFFER_BIT); 
+    glClear(GL_COLOR_BUFFER_BIT);
 }
 
 unsigned char red(int x, int y)
