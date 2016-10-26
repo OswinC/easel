@@ -1,6 +1,6 @@
 int x;
 int y;
-/* one-line variable definition like int x = 3 is not supported yet */
+/*/*/* one-line variable definition like int x = 3 is not supported yet */*/*/
 x = 3;
 
 function void foo() {}
