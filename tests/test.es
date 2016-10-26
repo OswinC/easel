@@ -3,6 +3,12 @@ bool ___z = true;
 
 function void foo() {}
 
+/*
+ * comments /*/*
+can be*/ nested
+*/
+*/
+
 function int bar(int a, bool b, int c) { 
     if (b == true) if (a < c) return a + c; else return a - c;
 }
