@@ -31,21 +31,18 @@ open Ast
 
 program:
   decls EOF { $1 }
-  /*decls EOF { let (vds, fds, sts) = $1 in List.rev vds, List.rev fds, List.rev sts }*/
 
 decls:
-    /* nothing */ { [], [], [] }
- | decls vdecl { let (vds, fds, sts) = $1 in ($2 :: vds), fds, sts }
- | decls fdecl { let (vds, fds, sts) = $1 in vds, ($2 :: fds), sts }
- | decls stmt { let (vds, fds, sts) = $1 in vds, fds, ($2 :: sts) }
+    /* nothing */ { [], [] }
+ | decls fdecl { let (fds, sts) = $1 in ($2 :: fds), sts }
+ | decls stmt { let (fds, sts) = $1 in fds, ($2 :: sts) }
 
 fdecl:
-   FUNC typ ID LPAREN formals_opt RPAREN LBRACE vdecl_list stmt_list RBRACE
+   FUNC typ ID LPAREN formals_opt RPAREN LBRACE stmt_list RBRACE
      { { typ = $2;
 	 fname = $3;
 	 formals = $5;
-	 locals = List.rev $8;
-	 body = List.rev $9 } }
+	 body = List.rev $8 } }
 
 formals_opt:
     /* nothing */ { [] }
@@ -61,11 +58,12 @@ typ:
   | VOID { Void }
 
 vdecl_list:
-    /* nothing */    { [] }
-  | vdecl_list vdecl { $2 :: $1 }
+    vdecl    { [$1] }
+  | vdecl_list COMMA vdecl { $3 :: $1 }
 
 vdecl:
-   typ ID SEMI { ($1, $2) }
+    ID { ($1, Noexpr) }
+  | ID ASSIGN expr { ($1, $3) }
 
 stmt_list:
     /* nothing */  { [] }
@@ -73,6 +71,7 @@ stmt_list:
 
 stmt:
     expr SEMI { Expr $1 }
+  | typ vdecl_list SEMI { Vdef($1, $2) }
   | RETURN SEMI { Return Noexpr }
   | RETURN expr SEMI { Return $2 }
   | LBRACE stmt_list RBRACE { Block(List.rev $2) }
