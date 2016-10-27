@@ -5,7 +5,7 @@ type op = Add | Sub | Mult | Div | Equal | Neq | Less | Leq | Greater | Geq |
 
 type uop = Neg | Not
 
-type typ = Int | Bool | Void
+type typ = Int | Float | Bool | Void | Pix
 
 type bind = typ * string
 
@@ -61,8 +61,10 @@ let string_of_uop = function
 
 let string_of_typ = function
     Int -> "int"
+  | Float -> "float"
   | Bool -> "bool"
   | Void -> "void"
+  | Pix -> "pix"
 
 let rec string_of_expr = function
     Literal(l) -> string_of_int l

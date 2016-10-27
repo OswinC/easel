@@ -1,5 +1,7 @@
 int x, _y = 3;
 bool ___z = true;
+float f1, f2, f3, f4;
+pix p;
 
 function void foo() {}
 

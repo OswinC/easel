@@ -31,8 +31,10 @@ rule token = parse
 | "while"  { WHILE }
 | "return" { RETURN }
 | "int"    { INT }
+| "float"  { FLOAT }
 | "bool"   { BOOL }
 | "void"   { VOID }
+| "pix"    { PIX }
 | "true"   { TRUE }
 | "false"  { FALSE }
 | "function"  { FUNC }
