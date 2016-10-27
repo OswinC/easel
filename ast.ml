@@ -10,7 +10,8 @@ type typ = Int | Float | Bool | Void | Pix
 type bind = typ * string
 
 type expr =
-    Literal of int
+    IntLit of int
+  | FloatLit of float
   | BoolLit of bool
   | Id of string
   | Binop of expr * op * expr
@@ -67,7 +68,8 @@ let string_of_typ = function
   | Pix -> "pix"
 
 let rec string_of_expr = function
-    Literal(l) -> string_of_int l
+    IntLit(l) -> string_of_int l
+  | FloatLit(f) -> string_of_float f
   | BoolLit(b) -> string_of_bool b
   | Id(s) -> s
   | Binop(e1, o, e2) ->

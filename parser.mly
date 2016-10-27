@@ -9,7 +9,8 @@ open Ast
 %token PLUS MINUS TIMES DIVIDE ASSIGN NOT
 %token EQ NEQ LT LEQ GT GEQ AND OR
 %token RETURN IF ELSE FOR WHILE INT FLOAT BOOL VOID PIX
-%token <int> LITERAL
+%token <int> INTLIT
+%token <float> FLOATLIT
 %token <bool> BOOLLIT
 %token <string> ID
 %token EOF
@@ -89,7 +90,8 @@ expr_opt:
   | expr          { $1 }
 
 expr:
-    LITERAL          { Literal($1) }
+    INTLIT           { IntLit($1) }
+  | FLOATLIT         { FloatLit($1) }
   | BOOLLIT          { BoolLit($1) }
   | ID               { Id($1) }
   | expr PLUS   expr { Binop($1, Add,   $3) }

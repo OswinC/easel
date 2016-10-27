@@ -1,7 +1,10 @@
 int x, _y = 3;
 bool b = false;
 bool ___z = true;
-float f1, f2, f3, f4;
+float f1 = .7, f2 = 5.
+    , f3 = 3e-4
+    , f4 = 3.14159
+    , f5 = .55e66;
 pix p;
 
 function void foo() {}

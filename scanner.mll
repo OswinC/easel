@@ -2,6 +2,9 @@
 
 { open Parser }
 
+let digit = ['0'-'9']
+let exp = 'e' ['+' '-']? digit+
+
 rule token = parse
   [' ' '\t' '\r' '\n'] { token lexbuf } (* Whitespace *)
 | "/*"     { comment 1 lexbuf }           (* Comments *)
@@ -37,7 +40,9 @@ rule token = parse
 | "pix"    { PIX }
 | "function"  { FUNC }
 | "true" | "false" as lxm { BOOLLIT(bool_of_string lxm) }
-| ['0'-'9']+ as lxm { LITERAL(int_of_string lxm) }
+| digit+ as lxm { INTLIT(int_of_string lxm) }
+| (digit* '.' digit+ | digit+ '.') exp? | digit+ exp as lxm
+     { FLOATLIT(float_of_string lxm) }
 | ['a'-'z' 'A'-'Z' '_']['a'-'z' 'A'-'Z' '0'-'9' '_']* as lxm { ID(lxm) }
 | eof { EOF }
 | _ as char { raise (Failure("illegal character " ^ Char.escaped char)) }
