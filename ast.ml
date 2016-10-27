@@ -67,6 +67,9 @@ let string_of_typ = function
   | Void -> "void"
   | Pix -> "pix"
 
+let string_of_bind (t, id) =
+    string_of_typ t ^ " " ^ id
+
 let rec string_of_expr = function
     IntLit(l) -> string_of_int l
   | FloatLit(f) -> string_of_float f
@@ -101,7 +104,7 @@ let rec string_of_stmt = function
 
 let string_of_fdecl fdecl =
   "function " ^ string_of_typ fdecl.typ ^ " " ^
-  fdecl.fname ^ "(" ^ String.concat ", " (List.map snd fdecl.formals) ^
+  fdecl.fname ^ "(" ^ String.concat ", " (List.map string_of_bind fdecl.formals) ^
   ")\n{\n" ^
   String.concat "" (List.map string_of_stmt fdecl.body) ^
   "}\n"
