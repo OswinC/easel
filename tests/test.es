@@ -1,4 +1,5 @@
 int x, _y = 3;
+bool b = false;
 bool ___z = true;
 float f1, f2, f3, f4;
 pix p;
