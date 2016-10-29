@@ -1,9 +1,9 @@
 (* Abstract Syntax Tree and functions for printing it *)
 
-type op = Add | Sub | Mult | Div | Equal | Neq | Less | Leq | Greater | Geq |
+type op = Add | Sub | Mult | Div | Pow | Equal | Neq | Less | Leq | Greater | Geq |
           And | Or
 
-type uop = Neg | Not
+type uop = Neg | Not | Inc | Dec | UMult | UDiv | UPow
 
 type typ = Int | Float | Bool | Void | Pix | Arr of typ
 
@@ -20,8 +20,9 @@ type expr =
   | Id of string
   | Binop of expr * op * expr
   | Unop of uop * expr
-  | Assign of string * expr
-  | Call of string * expr list
+  | Assign of expr * expr
+  | Call of expr * expr list
+  | EleAt of expr * expr
   | Noexpr
 
 type init_dectr = InitDectr of dectr * expr (* dectr * Initializer *)
@@ -51,6 +52,7 @@ let string_of_op = function
   | Sub -> "-"
   | Mult -> "*"
   | Div -> "/"
+  | Pow -> "^"
   | Equal -> "=="
   | Neq -> "!="
   | Less -> "<"
@@ -59,10 +61,6 @@ let string_of_op = function
   | Geq -> ">="
   | And -> "&&"
   | Or -> "||"
-
-let string_of_uop = function
-    Neg -> "-"
-  | Not -> "!"
 
 let rec string_of_typ = function
     Int -> "int"
@@ -87,10 +85,20 @@ let rec string_of_expr = function
   | Id(s) -> s
   | Binop(e1, o, e2) ->
       string_of_expr e1 ^ " " ^ string_of_op o ^ " " ^ string_of_expr e2
-  | Unop(o, e) -> string_of_uop o ^ string_of_expr e
-  | Assign(v, e) -> v ^ " = " ^ string_of_expr e
+  | Unop(o, e) -> 
+      match o with
+      Neg -> "-" ^ string_of_expr e
+    | Not -> "!" ^ string_of_expr e
+    | Inc -> string_of_expr e ^ "++"
+    | Dec -> string_of_expr e ^ "--"
+    | UMult -> string_of_expr e ^ "**"
+    | UDiv -> string_of_expr e ^ "//"
+    | UPow -> string_of_expr e ^ "^^";
+    ;
+  | Assign(v, e) -> string_of_expr v ^ " = " ^ string_of_expr e
   | Call(f, el) ->
-      f ^ "(" ^ String.concat ", " (List.map string_of_expr el) ^ ")"
+      string_of_expr f ^ "(" ^ String.concat ", " (List.map string_of_expr el) ^ ")"
+  | EleAt(arr, idx) -> string_of_expr arr ^ "[" ^ string_of_expr idx ^ "]"
   | Noexpr -> ""
 
 let string_of_initdectr = function

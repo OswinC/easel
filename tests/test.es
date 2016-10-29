@@ -28,10 +28,12 @@ function pix[][] paint(pix canvas[][], pix color) {
         }
     }
     */
+    if (x > 3 || y < 0 && color != 255) canvas[x--][y^^]++--**//^^;
     return canvas;
 }
 
-int a=_y*4, b, c = bar(x, ___z, _y);
+int a=_y*4, b=3, c = bar(x, ___z, _y);
+
 function int main() {
     print(bar(17, false, 25));
     return 0;

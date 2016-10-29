@@ -6,7 +6,8 @@ open Ast
 
 %token FUNC
 %token SEMI LPAREN RPAREN LBRCK RBRCK LBRACE RBRACE COMMA
-%token PLUS MINUS TIMES DIVIDE ASSIGN NOT
+%token PLUS MINUS TIMES DIVIDE POW ASSIGN NOT
+%token INC DEC UMULT UDIV UPOW 
 %token EQ NEQ LT LEQ GT GEQ AND OR
 %token RETURN IF ELSE FOR WHILE INT FLOAT BOOL VOID PIX
 %token <int> INTLIT
@@ -99,26 +100,68 @@ expr_opt:
   | expr          { $1 }
 
 expr:
-    INTLIT           { IntLit($1) }
-  | FLOATLIT         { FloatLit($1) }
-  | BOOLLIT          { BoolLit($1) }
-  | ID               { Id($1) }
-  | expr PLUS   expr { Binop($1, Add,   $3) }
-  | expr MINUS  expr { Binop($1, Sub,   $3) }
-  | expr TIMES  expr { Binop($1, Mult,  $3) }
-  | expr DIVIDE expr { Binop($1, Div,   $3) }
-  | expr EQ     expr { Binop($1, Equal, $3) }
-  | expr NEQ    expr { Binop($1, Neq,   $3) }
-  | expr LT     expr { Binop($1, Less,  $3) }
-  | expr LEQ    expr { Binop($1, Leq,   $3) }
-  | expr GT     expr { Binop($1, Greater, $3) }
-  | expr GEQ    expr { Binop($1, Geq,   $3) }
-  | expr AND    expr { Binop($1, And,   $3) }
-  | expr OR     expr { Binop($1, Or,    $3) }
-  | MINUS expr %prec NEG { Unop(Neg, $2) }
-  | NOT expr         { Unop(Not, $2) }
-  | ID ASSIGN expr   { Assign($1, $3) }
-  | ID LPAREN actuals_opt RPAREN { Call($1, $3) }
+    assign_expr { $1 }
+
+assign_expr:
+    logic_or_expr { $1 }
+  | postfix_expr ASSIGN logic_or_expr { Assign($1, $3) }
+
+logic_or_expr:
+    logic_and_expr { $1 }
+  | logic_or_expr OR logic_and_expr { Binop($1, Or, $3) }
+
+logic_and_expr:
+    eq_expr { $1 }
+  | logic_and_expr AND eq_expr { Binop($1, And, $3) }
+
+eq_expr:
+    rel_expr { $1 }
+  | eq_expr EQ rel_expr { Binop($1, Equal, $3) }
+  | eq_expr NEQ rel_expr { Binop($1, Neq, $3) }
+
+rel_expr:
+    add_expr { $1 }
+  | rel_expr LT add_expr { Binop($1, Less, $3) }
+  | rel_expr GT add_expr { Binop($1, Greater, $3) }
+  | rel_expr LEQ add_expr { Binop($1, Leq, $3) }
+  | rel_expr GEQ add_expr { Binop($1, Geq, $3) }
+
+add_expr:
+    mult_expr { $1 }
+  | add_expr PLUS mult_expr { Binop($1, Add, $3) }
+  | add_expr MINUS mult_expr { Binop($1, Sub, $3) }
+
+mult_expr:
+    exp_expr { $1 }
+  | mult_expr TIMES exp_expr { Binop($1, Mult, $3) }
+  | mult_expr DIVIDE exp_expr { Binop($1, Div, $3) }
+
+exp_expr:
+    unary_expr { $1 }
+  /* TODO: Should be right-associative? */
+  | exp_expr POW unary_expr { Binop($1, Pow, $3) }
+
+unary_expr:
+    postfix_expr { $1 }
+  | PLUS unary_expr { $2 }
+  | MINUS unary_expr { Unop(Neg, $2) }
+  | NOT unary_expr { Unop(Not, $2) }
+
+postfix_expr:
+    base_expr { $1 }
+  | postfix_expr LBRCK expr RBRCK { EleAt($1, $3) }
+  | postfix_expr LPAREN actuals_opt RPAREN { Call($1, $3) }
+  | postfix_expr INC { Unop(Inc, $1) }
+  | postfix_expr DEC { Unop(Dec, $1) }
+  | postfix_expr UMULT { Unop(UMult, $1) }
+  | postfix_expr UDIV { Unop(UDiv, $1) }
+  | postfix_expr UPOW { Unop(UPow, $1) }
+
+base_expr:
+    INTLIT             { IntLit($1) }
+  | FLOATLIT           { FloatLit($1) }
+  | BOOLLIT            { BoolLit($1) }
+  | ID                 { Id($1) }
   | LPAREN expr RPAREN { $2 }
 
 actuals_opt:

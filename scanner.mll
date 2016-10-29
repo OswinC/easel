@@ -20,6 +20,12 @@ rule token = parse
 | '-'      { MINUS }
 | '*'      { TIMES }
 | '/'      { DIVIDE }
+| '^'      { POW }
+| "++"     { INC }
+| "--"     { DEC }
+| "**"     { UMULT }
+| "//"     { UDIV }
+| "^^"     { UPOW }
 | '='      { ASSIGN }
 | "=="     { EQ }
 | "!="     { NEQ }
