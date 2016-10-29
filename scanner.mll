@@ -10,6 +10,8 @@ rule token = parse
 | "/*"     { comment 1 lexbuf }           (* Comments *)
 | '('      { LPAREN }
 | ')'      { RPAREN }
+| '['      { LBRCK }
+| ']'      { RBRCK }
 | '{'      { LBRACE }
 | '}'      { RBRACE }
 | ';'      { SEMI }

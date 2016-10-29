@@ -7,6 +7,10 @@ type uop = Neg | Not
 
 type typ = Int | Float | Bool | Void | Pix
 
+type dectr =
+    DecId of string
+  | Arr of dectr * int (* declarator * array length *)
+
 type bind = typ * string
 
 type expr =
@@ -20,12 +24,12 @@ type expr =
   | Call of string * expr list
   | Noexpr
 
-type vdecl = string * expr (* ID * Initializer *)
+type init_dectr = InitDectr of dectr * expr (* dectr * Initializer *)
 
 type stmt =
     Block of stmt list
   | Expr of expr
-  | Vdef of typ * vdecl list
+  | Vdef of typ * init_dectr list
   | Return of expr
   | If of expr * stmt * stmt
   | For of expr * expr * expr * stmt
@@ -83,16 +87,20 @@ let rec string_of_expr = function
       f ^ "(" ^ String.concat ", " (List.map string_of_expr el) ^ ")"
   | Noexpr -> ""
 
-let string_of_vdecl = function
-    (s, Noexpr) -> s
-  | (s, e) -> s ^ " = " ^ string_of_expr e
+let rec string_of_dectr = function
+    DecId(s) -> s
+  | Arr(d, l) -> string_of_dectr d ^ "[" ^ string_of_int l ^ "]"
+
+let string_of_initdectr = function
+    InitDectr(s, Noexpr) -> string_of_dectr s
+  | InitDectr(s, e) -> string_of_dectr s ^ " = " ^ string_of_expr e
 
 let rec string_of_stmt = function
     Block(stmts) ->
       "{\n" ^ String.concat "" (List.map string_of_stmt stmts) ^ "}\n"
   | Expr(expr) -> string_of_expr expr ^ ";\n";
   | Vdef(t, dl) -> string_of_typ t ^ " " ^
-      String.concat ", " (List.map string_of_vdecl (List.rev dl)) ^ ";\n";
+      String.concat ", " (List.map string_of_initdectr (List.rev dl)) ^ ";\n";
   | Return(expr) -> "return " ^ string_of_expr expr ^ ";\n";
   | If(e, s, Block([])) -> "if (" ^ string_of_expr e ^ ")\n" ^ string_of_stmt s
   | If(e, s1, s2) ->  "if (" ^ string_of_expr e ^ ")\n" ^

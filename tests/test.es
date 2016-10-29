@@ -5,7 +5,7 @@ float f1 = .7, f2 = 5.
     , f3 = 3e-4
     , f4 = 3.14159
     , f5 = .55e66;
-pix p;
+pix sp1, p[640][480], sp2;
 
 function void foo() {}
 

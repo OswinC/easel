@@ -5,7 +5,7 @@ open Ast
 %}
 
 %token FUNC
-%token SEMI LPAREN RPAREN LBRACE RBRACE COMMA
+%token SEMI LPAREN RPAREN LBRCK RBRCK LBRACE RBRACE COMMA
 %token PLUS MINUS TIMES DIVIDE ASSIGN NOT
 %token EQ NEQ LT LEQ GT GEQ AND OR
 %token RETURN IF ELSE FOR WHILE INT FLOAT BOOL VOID PIX
@@ -61,13 +61,17 @@ typ:
   | VOID { Void }
   | PIX { Pix }
 
-vdecl_list:
-    vdecl    { [$1] }
-  | vdecl_list COMMA vdecl { $3 :: $1 }
+init_dectr_list:
+    init_dectr    { [$1] }
+  | init_dectr_list COMMA init_dectr { $3 :: $1 }
 
-vdecl:
-    ID { ($1, Noexpr) }
-  | ID ASSIGN expr { ($1, $3) }
+init_dectr:
+    dectr { InitDectr($1, Noexpr) }
+  | dectr ASSIGN expr { InitDectr($1, $3) }
+
+dectr:
+    ID { DecId($1) }
+  | dectr LBRCK INTLIT RBRCK { Arr($1, $3) }
 
 stmt_list:
     /* nothing */  { [] }
@@ -75,7 +79,7 @@ stmt_list:
 
 stmt:
     expr SEMI { Expr $1 }
-  | typ vdecl_list SEMI { Vdef($1, $2) }
+  | typ init_dectr_list SEMI { Vdef($1, $2) }
   | RETURN SEMI { Return Noexpr }
   | RETURN expr SEMI { Return $2 }
   | LBRACE stmt_list RBRACE { Block(List.rev $2) }
