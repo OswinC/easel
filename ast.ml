@@ -5,13 +5,13 @@ type op = Add | Sub | Mult | Div | Equal | Neq | Less | Leq | Greater | Geq |
 
 type uop = Neg | Not
 
-type typ = Int | Float | Bool | Void | Pix
+type typ = Int | Float | Bool | Void | Pix | Arr of typ
 
 type dectr =
     DecId of string
-  | Arr of dectr * int (* declarator * array length *)
+  | DecArr of dectr * int (* declarator * array length *)
 
-type bind = typ * string
+type bind = typ * dectr
 
 type expr =
     IntLit of int
@@ -64,15 +64,21 @@ let string_of_uop = function
     Neg -> "-"
   | Not -> "!"
 
-let string_of_typ = function
+let rec string_of_typ = function
     Int -> "int"
   | Float -> "float"
   | Bool -> "bool"
   | Void -> "void"
   | Pix -> "pix"
+  | Arr(t) -> string_of_typ t ^ "[]"
 
-let string_of_bind (t, id) =
-    string_of_typ t ^ " " ^ id
+let rec string_of_dectr = function
+    DecId(s) -> s
+  | DecArr(d, 0) -> string_of_dectr d ^ "[]"
+  | DecArr(d, l) -> string_of_dectr d ^ "[" ^ string_of_int l ^ "]"
+
+let string_of_bind (t, d) =
+    string_of_typ t ^ " " ^ string_of_dectr d
 
 let rec string_of_expr = function
     IntLit(l) -> string_of_int l
@@ -86,10 +92,6 @@ let rec string_of_expr = function
   | Call(f, el) ->
       f ^ "(" ^ String.concat ", " (List.map string_of_expr el) ^ ")"
   | Noexpr -> ""
-
-let rec string_of_dectr = function
-    DecId(s) -> s
-  | Arr(d, l) -> string_of_dectr d ^ "[" ^ string_of_int l ^ "]"
 
 let string_of_initdectr = function
     InitDectr(s, Noexpr) -> string_of_dectr s

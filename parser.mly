@@ -51,10 +51,14 @@ formals_opt:
   | formal_list   { List.rev $1 }
 
 formal_list:
-    typ ID                   { [($1,$2)] }
-  | formal_list COMMA typ ID { ($3,$4) :: $1 }
+    prim_typ dectr                   { [($1,$2)] }
+  | formal_list COMMA prim_typ dectr { ($3,$4) :: $1 }
 
 typ:
+    prim_typ { $1 }
+  | typ LBRCK RBRCK { Arr($1) }
+
+prim_typ:
     INT { Int }
   | FLOAT { Float }
   | BOOL { Bool }
@@ -71,7 +75,8 @@ init_dectr:
 
 dectr:
     ID { DecId($1) }
-  | dectr LBRCK INTLIT RBRCK { Arr($1, $3) }
+  | dectr LBRCK INTLIT RBRCK { DecArr($1, $3) }
+  | dectr LBRCK RBRCK { DecArr($1, 0) }
 
 stmt_list:
     /* nothing */  { [] }
@@ -79,7 +84,7 @@ stmt_list:
 
 stmt:
     expr SEMI { Expr $1 }
-  | typ init_dectr_list SEMI { Vdef($1, $2) }
+  | prim_typ init_dectr_list SEMI { Vdef($1, $2) }
   | RETURN SEMI { Return Noexpr }
   | RETURN expr SEMI { Return $2 }
   | LBRACE stmt_list RBRACE { Block(List.rev $2) }
