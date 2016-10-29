@@ -16,7 +16,7 @@ easel.native :
 clean :
 	ocamlbuild -clean
 	rm -rf testall.log *.diff easel scanner.ml parser.ml parser.mli
-	rm -rf *.cmx *.cmi *.cmo *.cmx *.o
+	rm -rf *.cmx *.cmi *.cmo *.cmx *.o *.output
 
 # More detailed: build using ocamlc/ocamlopt + ocamlfind to locate LLVM
 
