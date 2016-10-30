@@ -23,6 +23,7 @@ and expr =
   | Assign of expr * expr
   | Call of expr * expr list
   | EleAt of expr * expr
+  | AnonFunc of func_decl
   | Noexpr
 
 and init_dectr = InitDectr of dectr * expr (* dectr * Initializer *)
@@ -101,6 +102,7 @@ and string_of_expr = function
   | Call(f, el) ->
       string_of_expr f ^ "(" ^ String.concat ", " (List.map string_of_expr el) ^ ")"
   | EleAt(arr, idx) -> string_of_expr arr ^ "[" ^ string_of_expr idx ^ "]"
+  | AnonFunc(func) -> string_of_fdecl func
   | Noexpr -> ""
 
 and string_of_initdectr = function

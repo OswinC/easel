@@ -47,6 +47,16 @@ function void f2(pix canvas[][], function pix (int, int) f3) {
     */
 }
 
+function int (float, int) f2 = function int (float deg, int rad) {
+};
+
+/* An anonymous function returning an anonymous function */
+function function int (float, int) (bool) f5 =
+    function function int (float, int) (bool flag) {
+        if (flag) return function int (float x, int y) { return 10; };
+        return function int (float x, int y) { return 3; };
+    };
+
 function int main() {
     print(bar(17, false, 25));
     return 0;

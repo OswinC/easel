@@ -41,27 +41,25 @@ decls:
  | decls stmt { let (fds, sts) = $1 in fds, ($2 :: sts) }
 
 fdecl:
-    FUNC atyp ID LPAREN formals_opt RPAREN LBRACE stmt_list RBRACE
+    FUNC atyp ID LPAREN formals RPAREN LBRACE stmt_list RBRACE
      { { typ = $2;
 	 fname = $3;
 	 formals = $5;
 	 body = List.rev $8 } }
 
-formals_opt:
-    /* nothing */ { [] }
-  | formal_list   { List.rev $1 }
+  | FUNC atyp ID LPAREN RPAREN LBRACE stmt_list RBRACE
+     { { typ = $2;
+	 fname = $3;
+     formals = [];
+	 body = List.rev $7 } }
 
-formal_list:
+formals:
     typ dectr                   { [($1, $2)] }
-  | formal_list COMMA typ dectr { ($3, $4) :: $1 }
+  | formals COMMA typ dectr { ($3, $4) :: $1 }
 
-aformals_opt:
-    /* nothing */ { [] }
-  | aformal_list   { List.rev $1 }
-
-aformal_list:
+aformals:
     atyp                    { [$1] }
-  | aformal_list COMMA atyp { $3 :: $1 }
+  | aformals COMMA atyp { $3 :: $1 }
 
 /* type keywords that can be immediately followed by []s */
 atyp:
@@ -80,8 +78,10 @@ prim_typ:
   | PIX { Pix }
 
 afunc_typ:
-    FUNC atyp LPAREN aformals_opt RPAREN
+    FUNC atyp LPAREN aformals RPAREN
     { Func($2, $4) }
+  | FUNC atyp LPAREN RPAREN
+    { Func($2, []) }
 
 init_dectr_list:
     init_dectr    { [$1] }
@@ -112,6 +112,12 @@ stmt:
      { For($3, $5, $7, $9) }
   | WHILE LPAREN expr RPAREN stmt { While($3, $5) }
 
+anonfunc:
+    FUNC atyp LPAREN formals RPAREN LBRACE stmt_list RBRACE
+    { AnonFunc({ typ = $2; fname = ""; formals = $4; body = List.rev $7 }) }
+  | FUNC atyp LPAREN RPAREN LBRACE stmt_list RBRACE
+    { AnonFunc({ typ = $2; fname = ""; formals = []; body = List.rev $6 }) }
+
 expr_opt:
     /* nothing */ { Noexpr }
   | expr          { $1 }
@@ -120,8 +126,10 @@ expr:
     assign_expr { $1 }
 
 assign_expr:
-    logic_or_expr { $1 }
+    logic_or_expr                     { $1 }
+  | anonfunc                          { $1 }
   | postfix_expr ASSIGN logic_or_expr { Assign($1, $3) }
+  | postfix_expr ASSIGN anonfunc      { Assign($1, $3) }
 
 logic_or_expr:
     logic_and_expr { $1 }
