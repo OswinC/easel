@@ -5,7 +5,9 @@ float f1 = .7, f2 = 5.
     , f3 = 3e-4
     , f4 = 3.14159
     , f5 = .55e66;
-pix sp1, canvas[640][480], sp2;
+pix sp1, canvas[640][480] = [[0]],
+    sp2[3] = [#ffffff, #7a8b9c,
+    x * y - 30 ^ .5];
 
 function void foo() {}
 

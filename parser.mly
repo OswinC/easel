@@ -120,6 +120,7 @@ expr:
 assign_expr:
     logic_or_expr                   { $1 }
   | anonfunc                        { $1 }
+  | LBRCK actuals_opt RBRCK         { ArrLit($2) }
   | postfix_expr ASSIGN assign_expr { Assign($1, $3) }
 
 logic_or_expr:
