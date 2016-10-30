@@ -35,6 +35,18 @@ function pix[][] paint(pix canvas[][], pix color) {
 int a=_y*4, b=3, c = bar(x, ___z, _y);
 
 function int (float, int) f1;
+
+function void f2(pix canvas[][], function pix (int, int) f3) {
+    int x, y;
+    /*
+    for (y = canvas.min; y < canvas.max; y++) {
+        for (x = canvas[y].min; x < canvas[y].max; x++) {
+            canvas[x][y] = f4(x, y);
+        }
+    }
+    */
+}
+
 function int main() {
     print(bar(17, false, 25));
     return 0;
