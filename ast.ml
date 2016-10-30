@@ -137,6 +137,11 @@ and string_of_fdecl fdecl =
   String.concat "" (List.map string_of_stmt fdecl.body) ^
   "}"
 
+and string_of_funcs = function
+    [] -> ""
+  | funcs -> String.concat "\n\n" (List.map string_of_fdecl (List.rev funcs)) ^ "\n\n"
+
 and string_of_program (funcs, stmts) =
-  String.concat "\n\n" (List.map string_of_fdecl (List.rev funcs)) ^ "\n\n" ^
+  string_of_funcs funcs ^
   String.concat "" (List.map string_of_stmt (List.rev stmts))
+
