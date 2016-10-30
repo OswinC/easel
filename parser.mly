@@ -33,16 +33,26 @@ decls:
  | decls stmt { let (fds, sts) = $1 in fds, ($2 :: sts) }
 
 fdecl:
-    FUNC atyp ID LPAREN formals RPAREN block
+    FUNC atyp ID LPAREN formals RPAREN LBRACE stmt_list RBRACE
      { { typ = $2;
 	 fname = $3;
 	 formals = List.rev $5;
-	 body = $7 } } 
-  | FUNC atyp ID LPAREN RPAREN LBRACE block
+	 body = List.rev $8 } }
+  | FUNC atyp ID LPAREN RPAREN LBRACE stmt_list RBRACE
      { { typ = $2;
 	 fname = $3;
      formals = [];
-	 body = $7 } } 
+	 body = List.rev $7 } }
+  | FUNC atyp ID LPAREN formals RPAREN LBRACE RBRACE
+     { { typ = $2;
+	 fname = $3;
+	 formals = List.rev $5;
+     body = [] } }
+  | FUNC atyp ID LPAREN RPAREN LBRACE RBRACE
+     { { typ = $2;
+	 fname = $3;
+     formals = [];
+     body = [] } }
 
 formals:
     typ dectr                   { [($1, $2)] }
@@ -91,16 +101,13 @@ stmt_list:
     stmt           { [$1] }
   | stmt_list stmt { $2 :: $1 }
 
-block:
-    LBRACE RBRACE { [] }
-  | LBRACE stmt_list RBRACE { List.rev $2 }
-
 stmt:
     expr SEMI { Expr $1 }
   | typ init_dectr_list SEMI { Vdef($1, $2) }
   | RETURN SEMI { Return Noexpr }
   | RETURN expr SEMI { Return $2 }
-  | block { Block($1) }
+  | LBRACE stmt_list RBRACE { Block(List.rev $2) }
+  | LBRACE RBRACE { Block([]) }
   | IF LPAREN expr RPAREN stmt %prec NOELSE { If($3, $5, Block([])) }
   | IF LPAREN expr RPAREN stmt ELSE stmt    { If($3, $5, $7) }
   | FOR LPAREN expr_opt SEMI expr SEMI expr_opt RPAREN stmt
@@ -108,10 +115,14 @@ stmt:
   | WHILE LPAREN expr RPAREN stmt { While($3, $5) }
 
 anonfunc:
-    FUNC atyp LPAREN formals RPAREN block
-    { AnonFunc({ typ = $2; fname = ""; formals = List.rev $4; body = $6 }) }
-  | FUNC atyp LPAREN RPAREN block
-    { AnonFunc({ typ = $2; fname = ""; formals = []; body = $5 }) } 
+    FUNC atyp LPAREN formals RPAREN LBRACE stmt_list RBRACE
+    { AnonFunc({ typ = $2; fname = ""; formals = List.rev $4; body = List.rev $7 }) }
+  | FUNC atyp LPAREN RPAREN LBRACE stmt_list RBRACE
+    { AnonFunc({ typ = $2; fname = ""; formals = []; body = List.rev $6 }) }
+  | FUNC atyp LPAREN formals RPAREN LBRACE RBRACE
+    { AnonFunc({ typ = $2; fname = ""; formals = List.rev $4; body = [] }) }
+  | FUNC atyp LPAREN RPAREN LBRACE RBRACE
+    { AnonFunc({ typ = $2; fname = ""; formals = []; body = [] }) }
 
 expr_opt:
     /* nothing */ { Noexpr }
@@ -123,9 +134,9 @@ expr:
 assign_expr:
     logic_or_expr                   { $1 }
   | anonfunc                        { $1 }
-  | LBRCK actuals_opt RBRCK         { ArrLit($2) }
-  /* TODO: Allow empty n-ple literal? */
-  | LBRACE actuals_list RBRACE       { NpleLit($2) }
+  | LBRCK actuals_list RBRCK        { ArrLit(List.rev $2) }
+  | LBRCK RBRCK                     { ArrLit([]) }
+  | LBRACE actuals_list RBRACE      { PixLit(List.rev $2) }
   | postfix_expr ASSIGN assign_expr { Assign($1, $3) }
 
 logic_or_expr:
@@ -171,7 +182,8 @@ unary_expr:
 postfix_expr:
     base_expr { $1 }
   | postfix_expr LBRCK expr RBRCK { EleAt($1, $3) }
-  | postfix_expr LPAREN actuals_opt RPAREN { Call($1, $3) }
+  | postfix_expr LPAREN actuals_list RPAREN { Call($1, List.rev $3) }
+  | postfix_expr LPAREN RPAREN { Call($1, []) }
   | postfix_expr DOT ID { PropAcc($1, $3) }
   | postfix_expr INC { Unop(Inc, $1) }
   | postfix_expr DEC { Unop(Dec, $1) }
@@ -185,10 +197,6 @@ base_expr:
   | BOOLLIT            { BoolLit($1) }
   | ID                 { Id($1) }
   | LPAREN expr RPAREN { $2 }
-
-actuals_opt:
-    /* nothing */ { [] }
-  | actuals_list  { List.rev $1 }
 
 actuals_list:
     expr                    { [$1] }
