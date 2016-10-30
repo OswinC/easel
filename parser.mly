@@ -44,7 +44,7 @@ fdecl:
     FUNC atyp ID LPAREN formals RPAREN LBRACE stmt_list RBRACE
      { { typ = $2;
 	 fname = $3;
-	 formals = $5;
+	 formals = List.rev $5;
 	 body = List.rev $8 } }
 
   | FUNC atyp ID LPAREN RPAREN LBRACE stmt_list RBRACE
@@ -79,7 +79,7 @@ prim_typ:
 
 afunc_typ:
     FUNC atyp LPAREN aformals RPAREN
-    { Func($2, $4) }
+    { Func($2, List.rev $4) }
   | FUNC atyp LPAREN RPAREN
     { Func($2, []) }
 
@@ -114,7 +114,7 @@ stmt:
 
 anonfunc:
     FUNC atyp LPAREN formals RPAREN LBRACE stmt_list RBRACE
-    { AnonFunc({ typ = $2; fname = ""; formals = $4; body = List.rev $7 }) }
+    { AnonFunc({ typ = $2; fname = ""; formals = List.rev $4; body = List.rev $7 }) }
   | FUNC atyp LPAREN RPAREN LBRACE stmt_list RBRACE
     { AnonFunc({ typ = $2; fname = ""; formals = []; body = List.rev $6 }) }
 
