@@ -129,8 +129,8 @@ and string_of_fdecl fdecl =
   fdecl.fname ^ "(" ^ String.concat ", " (List.map string_of_bind fdecl.formals) ^
   ")\n{\n" ^
   String.concat "" (List.map string_of_stmt fdecl.body) ^
-  "}\n"
+  "}"
 
 and string_of_program (funcs, stmts) =
-  String.concat "\n" (List.map string_of_fdecl (List.rev funcs)) ^ "\n" ^
+  String.concat "\n\n" (List.map string_of_fdecl (List.rev funcs)) ^ "\n\n" ^
   String.concat "" (List.map string_of_stmt (List.rev stmts))
