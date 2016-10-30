@@ -3,6 +3,7 @@
 { open Parser }
 
 let digit = ['0'-'9']
+let hexdigit = ['0'-'9' 'a'-'f' 'A'-'F']
 let exp = 'e' ['+' '-']? digit+
 
 rule token = parse
@@ -49,9 +50,16 @@ rule token = parse
 | "pix"    { PIX }
 | "function"  { FUNC }
 | "true" | "false" as lxm { BOOLLIT(bool_of_string lxm) }
-| digit+ as lxm { INTLIT(int_of_string lxm) }
+(* No harm to support 0xFF format *)
+| '0'('x'|'X') hexdigit+ | digit+ as lxm { INTLIT(int_of_string lxm) }
+| '#' hexdigit+ as lxm { 
+    let lit = "0x" ^ String.sub lxm 1 (String.length lxm - 1) in
+    INTLIT(int_of_string lit)
+  }
+(* Float literal *)
 | (digit* '.' digit+ | digit+ '.') exp? | digit+ exp as lxm
-     { FLOATLIT(float_of_string lxm) }
+  { FLOATLIT(float_of_string lxm) }
+(* Identifier *)
 | ['a'-'z' 'A'-'Z' '_']['a'-'z' 'A'-'Z' '0'-'9' '_']* as lxm { ID(lxm) }
 | eof { EOF }
 | _ as char { raise (Failure("illegal character " ^ Char.escaped char)) }
