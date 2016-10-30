@@ -30,6 +30,7 @@ function void paint(pix canvas[][], function pix (int, int) painter) {
 }
 
 int a=_y*4, b=3, c = bar(x, ___z, _y);
+a = b = c = 2 * 3;
 
 function int (float, int) f1;
 

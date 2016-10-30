@@ -126,10 +126,9 @@ expr:
     assign_expr { $1 }
 
 assign_expr:
-    logic_or_expr                     { $1 }
-  | anonfunc                          { $1 }
-  | postfix_expr ASSIGN logic_or_expr { Assign($1, $3) }
-  | postfix_expr ASSIGN anonfunc      { Assign($1, $3) }
+    logic_or_expr                   { $1 }
+  | anonfunc                        { $1 }
+  | postfix_expr ASSIGN assign_expr { Assign($1, $3) }
 
 logic_or_expr:
     logic_and_expr { $1 }
