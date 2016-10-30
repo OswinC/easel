@@ -41,7 +41,7 @@ decls:
  | decls stmt { let (fds, sts) = $1 in fds, ($2 :: sts) }
 
 fdecl:
-   FUNC typ ID LPAREN formals_opt RPAREN LBRACE stmt_list RBRACE
+    FUNC atyp ID LPAREN formals_opt RPAREN LBRACE stmt_list RBRACE
      { { typ = $2;
 	 fname = $3;
 	 formals = $5;
@@ -52,12 +52,25 @@ formals_opt:
   | formal_list   { List.rev $1 }
 
 formal_list:
-    prim_typ dectr                   { [($1,$2)] }
-  | formal_list COMMA prim_typ dectr { ($3,$4) :: $1 }
+    typ dectr                   { [($1, $2)] }
+  | formal_list COMMA typ dectr { ($3, $4) :: $1 }
+
+aformals_opt:
+    /* nothing */ { [] }
+  | aformal_list   { List.rev $1 }
+
+aformal_list:
+    atyp                    { [$1] }
+  | aformal_list COMMA atyp { $3 :: $1 }
+
+/* type keywords that can be immediately followed by []s */
+atyp:
+    typ { $1 }
+  | atyp LBRCK RBRCK { Arr($1) }
 
 typ:
     prim_typ { $1 }
-  | typ LBRCK RBRCK { Arr($1) }
+  | afunc_typ { $1 }
 
 prim_typ:
     INT { Int }
@@ -65,6 +78,10 @@ prim_typ:
   | BOOL { Bool }
   | VOID { Void }
   | PIX { Pix }
+
+afunc_typ:
+    FUNC atyp LPAREN aformals_opt RPAREN
+    { Func($2, $4) }
 
 init_dectr_list:
     init_dectr    { [$1] }
@@ -85,7 +102,7 @@ stmt_list:
 
 stmt:
     expr SEMI { Expr $1 }
-  | prim_typ init_dectr_list SEMI { Vdef($1, $2) }
+  | typ init_dectr_list SEMI { Vdef($1, $2) }
   | RETURN SEMI { Return Noexpr }
   | RETURN expr SEMI { Return $2 }
   | LBRACE stmt_list RBRACE { Block(List.rev $2) }

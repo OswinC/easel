@@ -5,7 +5,7 @@ type op = Add | Sub | Mult | Div | Pow | Equal | Neq | Less | Leq | Greater | Ge
 
 type uop = Neg | Not | Inc | Dec | UMult | UDiv | UPow
 
-type typ = Int | Float | Bool | Void | Pix | Arr of typ
+type typ = Int | Float | Bool | Void | Pix | Func of typ * typ list | Arr of typ
 
 type dectr =
     DecId of string
@@ -68,6 +68,8 @@ let rec string_of_typ = function
   | Bool -> "bool"
   | Void -> "void"
   | Pix -> "pix"
+  | Func(t, tl) ->
+    "function " ^ string_of_typ t ^ " (" ^ String.concat ", " (List.map string_of_typ tl) ^ ")"
   | Arr(t) -> string_of_typ t ^ "[]"
 
 let rec string_of_dectr = function
