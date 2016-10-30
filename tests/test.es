@@ -47,7 +47,7 @@ function void f2(pix canvas[][], function pix (int, int) f3) {
     */
 }
 
-function int (float, int) f2 = function int (float deg, int rad) {
+function int (float, int) f4 = function int (float deg, int rad) {
 };
 
 /* An anonymous function returning an anonymous function */
