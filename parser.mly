@@ -33,17 +33,16 @@ decls:
  | decls stmt { let (fds, sts) = $1 in fds, ($2 :: sts) }
 
 fdecl:
-    FUNC atyp ID LPAREN formals RPAREN LBRACE stmt_list RBRACE
+    FUNC atyp ID LPAREN formals RPAREN block
      { { typ = $2;
 	 fname = $3;
 	 formals = List.rev $5;
-	 body = List.rev $8 } }
-
-  | FUNC atyp ID LPAREN RPAREN LBRACE stmt_list RBRACE
+	 body = $7 } } 
+  | FUNC atyp ID LPAREN RPAREN LBRACE block
      { { typ = $2;
 	 fname = $3;
      formals = [];
-	 body = List.rev $7 } }
+	 body = $7 } } 
 
 formals:
     typ dectr                   { [($1, $2)] }
@@ -89,15 +88,19 @@ dectr:
   | dectr LBRCK RBRCK { DecArr($1, 0) }
 
 stmt_list:
-    /* nothing */  { [] }
+    stmt           { [$1] }
   | stmt_list stmt { $2 :: $1 }
+
+block:
+    LBRACE RBRACE { [] }
+  | LBRACE stmt_list RBRACE { List.rev $2 }
 
 stmt:
     expr SEMI { Expr $1 }
   | typ init_dectr_list SEMI { Vdef($1, $2) }
   | RETURN SEMI { Return Noexpr }
   | RETURN expr SEMI { Return $2 }
-  | LBRACE stmt_list RBRACE { Block(List.rev $2) }
+  | block { Block($1) }
   | IF LPAREN expr RPAREN stmt %prec NOELSE { If($3, $5, Block([])) }
   | IF LPAREN expr RPAREN stmt ELSE stmt    { If($3, $5, $7) }
   | FOR LPAREN expr_opt SEMI expr SEMI expr_opt RPAREN stmt
@@ -105,10 +108,10 @@ stmt:
   | WHILE LPAREN expr RPAREN stmt { While($3, $5) }
 
 anonfunc:
-    FUNC atyp LPAREN formals RPAREN LBRACE stmt_list RBRACE
-    { AnonFunc({ typ = $2; fname = ""; formals = List.rev $4; body = List.rev $7 }) }
-  | FUNC atyp LPAREN RPAREN LBRACE stmt_list RBRACE
-    { AnonFunc({ typ = $2; fname = ""; formals = []; body = List.rev $6 }) }
+    FUNC atyp LPAREN formals RPAREN block
+    { AnonFunc({ typ = $2; fname = ""; formals = List.rev $4; body = $6 }) }
+  | FUNC atyp LPAREN RPAREN block
+    { AnonFunc({ typ = $2; fname = ""; formals = []; body = $5 }) } 
 
 expr_opt:
     /* nothing */ { Noexpr }
@@ -121,6 +124,8 @@ assign_expr:
     logic_or_expr                   { $1 }
   | anonfunc                        { $1 }
   | LBRCK actuals_opt RBRCK         { ArrLit($2) }
+  /* TODO: Allow empty n-ple literal? */
+  | LBRACE actuals_list RBRACE       { NpleLit($2) }
   | postfix_expr ASSIGN assign_expr { Assign($1, $3) }
 
 logic_or_expr:
