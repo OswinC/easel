@@ -3,17 +3,17 @@
 type op = Add | Sub | Mult | Div | Pow | Equal | Neq | Less | Leq | Greater | Geq |
           And | Or
 
-type uop = Neg | Not | Inc | Dec | UMult | UDiv | UPow
+and uop = Neg | Not | Inc | Dec | UMult | UDiv | UPow
 
-type typ = Int | Float | Bool | Void | Pix | Func of typ * typ list | Arr of typ
+and typ = Int | Float | Bool | Void | Pix | Func of typ * typ list | Arr of typ
 
-type dectr =
+and dectr =
     DecId of string
   | DecArr of dectr * int (* declarator * array length *)
 
-type bind = typ * dectr
+and bind = typ * dectr
 
-type expr =
+and expr =
     IntLit of int
   | FloatLit of float
   | BoolLit of bool
@@ -25,9 +25,9 @@ type expr =
   | EleAt of expr * expr
   | Noexpr
 
-type init_dectr = InitDectr of dectr * expr (* dectr * Initializer *)
+and init_dectr = InitDectr of dectr * expr (* dectr * Initializer *)
 
-type stmt =
+and stmt =
     Block of stmt list
   | Expr of expr
   | Vdef of typ * init_dectr list
@@ -36,18 +36,18 @@ type stmt =
   | For of expr * expr * expr * stmt
   | While of expr * stmt
 
-type func_decl = {
+and func_decl = {
     typ : typ;
     fname : string;
     formals : bind list;
     body : stmt list;
   }
 
-type program = func_decl list * stmt list
+and program = func_decl list * stmt list
 
 (* Pretty-printing functions *)
 
-let string_of_op = function
+let rec string_of_op = function
     Add -> "+"
   | Sub -> "-"
   | Mult -> "*"
@@ -62,7 +62,7 @@ let string_of_op = function
   | And -> "&&"
   | Or -> "||"
 
-let rec string_of_typ = function
+and string_of_typ = function
     Int -> "int"
   | Float -> "float"
   | Bool -> "bool"
@@ -72,15 +72,15 @@ let rec string_of_typ = function
     "function " ^ string_of_typ t ^ " (" ^ String.concat ", " (List.map string_of_typ tl) ^ ")"
   | Arr(t) -> string_of_typ t ^ "[]"
 
-let rec string_of_dectr = function
+and string_of_dectr = function
     DecId(s) -> s
   | DecArr(d, 0) -> string_of_dectr d ^ "[]"
   | DecArr(d, l) -> string_of_dectr d ^ "[" ^ string_of_int l ^ "]"
 
-let string_of_bind (t, d) =
+and string_of_bind (t, d) =
     string_of_typ t ^ " " ^ string_of_dectr d
 
-let rec string_of_expr = function
+and string_of_expr = function
     IntLit(l) -> string_of_int l
   | FloatLit(f) -> string_of_float f
   | BoolLit(b) -> string_of_bool b
@@ -103,11 +103,11 @@ let rec string_of_expr = function
   | EleAt(arr, idx) -> string_of_expr arr ^ "[" ^ string_of_expr idx ^ "]"
   | Noexpr -> ""
 
-let string_of_initdectr = function
+and string_of_initdectr = function
     InitDectr(s, Noexpr) -> string_of_dectr s
   | InitDectr(s, e) -> string_of_dectr s ^ " = " ^ string_of_expr e
 
-let rec string_of_stmt = function
+and string_of_stmt = function
     Block(stmts) ->
       "{\n" ^ String.concat "" (List.map string_of_stmt stmts) ^ "}\n"
   | Expr(expr) -> string_of_expr expr ^ ";\n";
@@ -122,13 +122,13 @@ let rec string_of_stmt = function
       string_of_expr e3  ^ ") " ^ string_of_stmt s
   | While(e, s) -> "while (" ^ string_of_expr e ^ ") " ^ string_of_stmt s
 
-let string_of_fdecl fdecl =
+and string_of_fdecl fdecl =
   "function " ^ string_of_typ fdecl.typ ^ " " ^
   fdecl.fname ^ "(" ^ String.concat ", " (List.map string_of_bind fdecl.formals) ^
   ")\n{\n" ^
   String.concat "" (List.map string_of_stmt fdecl.body) ^
   "}\n"
 
-let string_of_program (funcs, stmts) =
+and string_of_program (funcs, stmts) =
   String.concat "\n" (List.map string_of_fdecl (List.rev funcs)) ^ "\n" ^
   String.concat "" (List.map string_of_stmt (List.rev stmts))
