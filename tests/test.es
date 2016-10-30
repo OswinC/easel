@@ -15,37 +15,23 @@ can be*/ nested
 */
 */
 
-function int bar(int a, bool b, int c) { 
+function int bar(int x, int y, bool b, int c[][]) { 
     if (b == true) if (a < c) return a + c; else return a - c;
+    if (x > 3 || y < 0 && !b) c[x--][y^^]++--**//^^;
 }
 
-function pix[][] paint(pix canvas[][], pix color) {
+function void paint(pix canvas[][], function pix (int, int) painter) {
     int x, y;
-    /*
     for (y = canvas.min; y < canvas.max; y++) {
         for (x = canvas[y].min; x < canvas[y].max; x++) {
-            canvas[x][y] = color;
+            canvas[x][y] = painter(x, y);
         }
     }
-    */
-    if (x > 3 || y < 0 && color != 255) canvas[x--][y^^]++--**//^^;
-    return canvas;
 }
 
 int a=_y*4, b=3, c = bar(x, ___z, _y);
 
 function int (float, int) f1;
-
-function void f2(pix canvas[][], function pix (int, int) f3) {
-    int x, y;
-    /*
-    for (y = canvas.min; y < canvas.max; y++) {
-        for (x = canvas[y].min; x < canvas[y].max; x++) {
-            canvas[x][y] = f4(x, y);
-        }
-    }
-    */
-}
 
 function int (float, int) f4 = function int (float deg, int rad) {
 };

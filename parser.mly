@@ -7,7 +7,7 @@ open Ast
 %token FUNC
 %token SEMI LPAREN RPAREN LBRCK RBRCK LBRACE RBRACE COMMA
 %token PLUS MINUS TIMES DIVIDE POW ASSIGN NOT
-%token INC DEC UMULT UDIV UPOW 
+%token INC DEC UMULT UDIV UPOW DOT
 %token EQ NEQ LT LEQ GT GEQ AND OR
 %token RETURN IF ELSE FOR WHILE INT FLOAT BOOL VOID PIX
 %token <int> INTLIT
@@ -175,6 +175,7 @@ postfix_expr:
     base_expr { $1 }
   | postfix_expr LBRCK expr RBRCK { EleAt($1, $3) }
   | postfix_expr LPAREN actuals_opt RPAREN { Call($1, $3) }
+  | postfix_expr DOT ID { PropAcc($1, $3) }
   | postfix_expr INC { Unop(Inc, $1) }
   | postfix_expr DEC { Unop(Dec, $1) }
   | postfix_expr UMULT { Unop(UMult, $1) }

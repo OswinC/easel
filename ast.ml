@@ -23,6 +23,7 @@ and expr =
   | Assign of expr * expr
   | Call of expr * expr list
   | EleAt of expr * expr
+  | PropAcc of expr * string (* Access property "string" of "expr" *)
   | AnonFunc of func_decl
   | Noexpr
 
@@ -102,6 +103,7 @@ and string_of_expr = function
   | Call(f, el) ->
       string_of_expr f ^ "(" ^ String.concat ", " (List.map string_of_expr el) ^ ")"
   | EleAt(arr, idx) -> string_of_expr arr ^ "[" ^ string_of_expr idx ^ "]"
+  | PropAcc(e, id) -> string_of_expr e ^ "." ^ id
   | AnonFunc(func) -> string_of_fdecl func
   | Noexpr -> ""
 
