@@ -163,7 +163,6 @@ mult_expr:
 
 exp_expr:
     unary_expr { $1 }
-  /* TODO: Should be right-associative? */
   | exp_expr POW unary_expr { Binop($1, Pow, $3) }
 
 unary_expr:
