@@ -18,6 +18,7 @@ and expr =
   | FloatLit of float
   | BoolLit of bool
   | ArrLit of expr list
+  | PixLit of expr list
   | Id of string
   | Binop of expr * op * expr
   | Unop of uop * expr
@@ -88,6 +89,7 @@ and string_of_expr = function
   | FloatLit(f) -> string_of_float f
   | BoolLit(b) -> string_of_bool b
   | ArrLit(el) -> "[" ^ String.concat ", " (List.map string_of_expr el) ^ "]"
+  | PixLit(el) -> "{" ^ String.concat ", " (List.map string_of_expr el) ^ "}"
   | Id(s) -> s
   | Binop(e1, o, e2) ->
       string_of_expr e1 ^ " " ^ string_of_op o ^ " " ^ string_of_expr e2
@@ -135,6 +137,11 @@ and string_of_fdecl fdecl =
   String.concat "" (List.map string_of_stmt fdecl.body) ^
   "}"
 
+and string_of_funcs = function
+    [] -> ""
+  | funcs -> String.concat "\n\n" (List.map string_of_fdecl (List.rev funcs)) ^ "\n\n"
+
 and string_of_program (funcs, stmts) =
-  String.concat "\n\n" (List.map string_of_fdecl (List.rev funcs)) ^ "\n\n" ^
+  string_of_funcs funcs ^
   String.concat "" (List.map string_of_stmt (List.rev stmts))
+

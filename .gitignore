@@ -1,2 +1,5 @@
 _build
 *.native
+test-*.ast
+test-*.diff
+*.log
