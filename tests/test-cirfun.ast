@@ -1,19 +1,19 @@
-int sin(int a)
+function int sin(int a)
 {
 return sin(a);
 }
 
-int cos(int b)
+function int cos(int b)
 {
 return cos(b);
 }
 
-int tan(int c)
+function int tan(int c)
 {
 return tan(c);
 }
 
-int main()
+function int main()
 {
 int a;
 int b;
