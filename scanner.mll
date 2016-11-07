@@ -21,6 +21,7 @@ rule token = parse
 | '-'      { MINUS }
 | '*'      { TIMES }
 | '/'      { DIVIDE }
+| '%'      { MOD }
 | '^'      { POW }
 | '.'      { DOT }
 | "++"     { INC }
