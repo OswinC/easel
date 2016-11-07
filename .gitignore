@@ -1,5 +1,5 @@
 _build
 *.native
-test-*.ast
-test-*.diff
+/test-*.ast
+/test-*.diff
 *.log
