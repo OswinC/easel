@@ -6,7 +6,7 @@ open Ast
 
 %token FUNC
 %token SEMI LPAREN RPAREN LBRCK RBRCK LBRACE RBRACE COMMA
-%token PLUS MINUS TIMES DIVIDE POW ASSIGN NOT
+%token PLUS MINUS TIMES DIVIDE MOD POW ASSIGN NOT
 %token INC DEC UMULT UDIV UPOW DOT
 %token EQ NEQ LT LEQ GT GEQ AND OR
 %token RETURN IF ELSE FOR WHILE INT FLOAT BOOL VOID PIX
@@ -168,6 +168,7 @@ mult_expr:
     exp_expr { $1 }
   | mult_expr TIMES exp_expr { Binop($1, Mult, $3) }
   | mult_expr DIVIDE exp_expr { Binop($1, Div, $3) }
+  | mod_expr MOD exp_expr { Binop($1, Mod, $3) }
 
 exp_expr:
     unary_expr { $1 }
