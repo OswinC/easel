@@ -37,22 +37,26 @@ fdecl:
      { { typ = $2;
 	 fname = $3;
 	 formals = List.rev $5;
-	 body = List.rev $8 } }
+     body = List.rev $8;
+     checked = false } }
   | FUNC typ ID LPAREN RPAREN LBRACE stmt_list RBRACE
      { { typ = $2;
 	 fname = $3;
      formals = [];
-	 body = List.rev $7 } }
+	 body = List.rev $7;
+     checked = false } }
   | FUNC typ ID LPAREN formals RPAREN LBRACE RBRACE
      { { typ = $2;
 	 fname = $3;
 	 formals = List.rev $5;
-     body = [] } }
+     body = [];
+     checked = false } }
   | FUNC typ ID LPAREN RPAREN LBRACE RBRACE
      { { typ = $2;
 	 fname = $3;
      formals = [];
-     body = [] } }
+     body = [];
+     checked = false } }
 
 formals:
     typ dectr                   { [($1, $2)] }
@@ -112,13 +116,13 @@ stmt:
 
 anonfunc:
     FUNC typ LPAREN formals RPAREN LBRACE stmt_list RBRACE
-    { AnonFunc({ typ = $2; fname = ""; formals = List.rev $4; body = List.rev $7 }) }
+    { AnonFunc({ typ = $2; fname = ""; formals = List.rev $4; body = List.rev $7; checked = false }) }
   | FUNC typ LPAREN RPAREN LBRACE stmt_list RBRACE
-    { AnonFunc({ typ = $2; fname = ""; formals = []; body = List.rev $6 }) }
+    { AnonFunc({ typ = $2; fname = ""; formals = []; body = List.rev $6; checked = false }) }
   | FUNC typ LPAREN formals RPAREN LBRACE RBRACE
-    { AnonFunc({ typ = $2; fname = ""; formals = List.rev $4; body = [] }) }
+    { AnonFunc({ typ = $2; fname = ""; formals = List.rev $4; body = []; checked = false }) }
   | FUNC typ LPAREN RPAREN LBRACE RBRACE
-    { AnonFunc({ typ = $2; fname = ""; formals = []; body = [] }) }
+    { AnonFunc({ typ = $2; fname = ""; formals = []; body = []; checked = false }) }
 
 expr_opt:
     /* nothing */ { Noexpr }
