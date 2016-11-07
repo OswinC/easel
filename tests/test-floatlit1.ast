@@ -1,6 +1,9 @@
-float f = 3.14159;
-a = 300000.;
-b = 3e-05;
-c = -300000.;
-d = 3e-07;
-e = 30000.;
+float pi = 3.14159;
+float a = 300000.;
+float b = 3e-05;
+float c = -300000.;
+float d = 3e-07;
+float e = 30000.;
+float f = 330000.;
+float g = 3.3e-05;
+float h = 3.3e-15;
