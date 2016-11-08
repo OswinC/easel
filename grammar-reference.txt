@@ -1,0 +1,219 @@
+PROGRAMS
+
+
+
+
+FUNCTIONS
+
+
+function -> function-declaration return-region
+function -> function type name = function-literal
+
+
+function-declaration -> function type name (function-parameter-list)
+
+
+anonymous-function -> function type (parameter-list) return-region
+
+
+function-literal -> function type (function-parameter-list) return-region
+
+
+return-region -> { statement-list return expression ; }
+
+
+function-parameter-list -> function-parameter-list, declaration
+function-parameter-list -> function-parameter-list, function-declaration
+function-parameter-list -> declaration
+function-parameter-list -> function-declaration
+
+
+function-signature -> type name(parameter-list)
+
+
+DECLARATIONS
+
+
+compound-declaration ->  compound declaration[addition-expression];
+compound-declaration -> simple-declaration
+
+
+simple-declaration -> type name
+
+
+declaration -> compound-declaration assignment-expression
+declaration -> compound-declaration
+
+
+STATEMENTS
+
+
+
+
+statement-list -> statement statement-list
+statement-list -> statement
+
+
+statement -> expression ;
+statement -> anonymous-function ;
+statement -> condition-statement;
+statement -> loop-statement;
+statement -> declaration;
+
+
+condition-statement -> if ( expression ) region
+condition-statement -> if ( expression ) region else region
+
+
+loop-statement -> for ( expression ; expression ; expression ) region
+loop-statement -> do region while ( expression )
+loop-statement -> while ( expression ) region 
+
+
+region -> { statement-list }
+
+
+EXPRESSIONS
+expression -> assignment-expression
+
+
+
+
+assignment-expression -> unary-expression = logical-OR-expression
+assignment-expression -> unary-expression = n-ple-literal
+assignment-expression -> logical-OR-expression
+
+
+logical-OR-expression -> logical-OR-expression || logical-AND-EXPRESSION
+logical-OR-expression -> logical-AND-expression
+
+
+logical-AND-expression -> logical-AND-expression && equality-expression
+logical-AND-expression -> equality-expression
+
+
+equality-expression -> equality-expression == relational-expression
+equality-expression -> equality-expression != relational-expression
+equality-expression -> relational-expression
+
+
+relational-expression -> relational-expression < addition-expression
+relational-expression -> relational-expression > addition-expression
+relational-expression -> relational-expression <= addition-expression
+relational-expression -> relational-expression >= addition-expression
+relational-expression -> addition-expression
+
+
+addition-expression -> addition-expression + multiplication-expression
+addition-expression -> addition-expression - multiplication-expression
+addition-expression -> multiplication-expression
+
+
+multiplication-expression -> multiplication-expression * exponential-expression
+multiplication-expression -> multiplication-expression / exponential-expression
+multiplication-expression -> exponential-expression
+
+
+exponential-expression -> exponential-expression ^ unary-expression
+exponential-expression -> unary-expression
+
+
+unary-expression -> + unary-expression
+unary-expression -> - unary-expression
+unary-expression -> ! unary-expression
+
+
+unary-expression -> postfix-expression
+
+
+postfix-expression -> postfix-expression [ expression ]
+postfix-expression -> postfix-expression ( parameter-list )
+postfix-expression -> postfix-expression ( )
+postfix-expression -> postfix-expression ++
+postfix-expression -> postfix-expression –
+postfix-expression -> postfix-expression //
+postfix-expression -> postfix-expression **
+postfix-expression -> postfix-expression ^^
+postfix-expression -> base-expression
+
+
+parameter-list -> parameter-list, anonymous-function
+parameter-list -> parameter-list, expression
+parameter-list -> parameter-list, n-ple-literal
+parameter-list -> n-ple-literal
+parameter-list -> expression
+parameter-list -> anonymous-function
+parameter-list -> parameter-list, function-signature
+
+
+expression-list -> expression-list , expression
+expression-list -> expression
+
+
+base-expression -> primitive-literal
+base-expression -> name
+base-expression -> anonymous-function
+base-expression -> ( expression )
+
+
+type -> primitive-type[]
+type -> primitive-type
+
+
+primitive-type -> int
+primitive-type -> float
+primitive-type -> boolean
+primitive-type -> pix
+
+
+
+
+NAMES AND LITERALS
+
+
+n-ple-literal -> {parameter-list}
+literal-list -> literal-list, primitive-literal
+literal-list -> literal-list, function-literal
+literal-list -> function-literal
+literal-list -> primitive-literal
+
+
+primitive-literal -> pix-literal
+primitive-literal -> boolean-literal
+primitive-literal -> float-literal
+primitive-literal -> integer-literal
+
+
+pix-literal -> { integer-constant , integer-constant , integer-constant }
+
+
+boolean-literal -> true
+boolean-literal -> false
+
+
+
+
+float-literal -> integer-literal . integer-literal float-literal-exponent
+float-literal -> . integer-literal float-literal-exponent
+float-literal -> integer-literal float-literal-exponent
+float-literal-exponent -> e integer-literal
+float-literal-exponent -> e + integer-literal
+float-literal-exponent -> e - integer-literal
+
+
+
+
+integer-literal -> integer-literal-hex
+integer-constant -> integer-literal-dec
+integer-literal-dec -> number-dec
+integer-literal-hex -> # number-hex
+
+
+number-hex -> [0-9a-f]*
+number-dec -> [0-9]*
+
+
+name -> [a-zA-Z][0-9a-zA-Z_]
+
+
+
