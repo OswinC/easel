@@ -15,7 +15,7 @@ function int mod(int a, int b)
 
 function int exp(int a, int b)
 {
-  return a ^^ b;
+  return a ^ b;
 }
 
 function int main()
