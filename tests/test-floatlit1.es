@@ -1,6 +1,9 @@
-float f = 3.14159;
-a = 3e5;
-b = 3.e-5;
-c = -3.e5;
-d = .3e-6;
-e = .3e5;
+float pi = 3.14159;
+float a = 3e5;
+float b = 3.e-5;
+float c = -3.e5;
+float d = .3e-6;
+float e = .3e5;
+float f = 3.3e5;
+float g = 3.3e-5;
+float h = 3.3e-15;
