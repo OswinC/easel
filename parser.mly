@@ -168,7 +168,7 @@ mult_expr:
     exp_expr { $1 }
   | mult_expr TIMES exp_expr { Binop($1, Mult, $3) }
   | mult_expr DIVIDE exp_expr { Binop($1, Div, $3) }
-  | mod_expr MOD exp_expr { Binop($1, Mod, $3) }
+  | mult_expr MOD exp_expr { Binop($1, Mod, $3) }
 
 exp_expr:
     unary_expr { $1 }
