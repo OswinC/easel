@@ -62,6 +62,17 @@ Run() {
     }
 }
 
+# RunFail <args>
+# Report the command, run it, and expect an error
+RunFail() {
+    echo $* 1>&2
+    eval $* && {
+	SignalError "failed: $* did not report an error"
+	return 1
+    }
+    return 0
+}
+
 Check() {
     error=0
     basename=`echo $1 | sed 's/.*\\///
@@ -100,6 +111,43 @@ Check() {
     fi
 }
 
+CheckFail() {
+    error=0
+    basename=`echo $1 | sed 's/.*\\///
+                             s/.es$//'`
+    reffile=`echo $1 | sed 's/.es$//'`
+
+    echo -n "$basename..."
+
+    echo 1>&2
+    echo "###### Testing $basename" 1>&2
+
+    generatedfiles=""
+
+    if [ $ast -eq 1 ]; then
+        generatedfiles="$generatedfiles ${basename}.err ${basename}.diff" &&
+        RunFail "$EASEL -a" "<" $1 "2>" "${basename}.err" ">>" $globallog &&
+        Compare ${basename}.err ${reffile}.err ${basename}.diff
+    else
+        generatedfiles="$generatedfiles ${basename}.err ${basename}.diff" &&
+        RunFail "$EASEL" "<" $1 "2>" "${basename}.err" ">>" $globallog &&
+        Compare ${basename}.err ${reffile}.err ${basename}.diff
+    fi
+
+    # Report the status and clean up the generated files
+
+    if [ $error -eq 0 ] ; then
+	if [ $keep -eq 0 ] ; then
+	    rm -f $generatedfiles
+	fi
+	echo "OK"
+	echo "###### SUCCESS" 1>&2
+    else
+	echo "###### FAILED" 1>&2
+	globalerror=$error
+    fi
+}
+
 while getopts "hka" c; do
     case $c in
 	k) # Keep intermediate files
@@ -114,7 +162,7 @@ while getopts "hka" c; do
     esac
 done
 
-[ $ast -eq 0 ] && echo "Only supports checking AST" && exit 10
+[ $ast -eq 0 ] && echo "Only supports checking AST with -a option" && exit 10
 
 shift `expr $OPTIND - 1`
 # Parameters appearing after double dash are positional parameters
@@ -134,8 +182,7 @@ do
 	    Check $file 2>> $globallog
 	    ;;
 	*fail-*)
-		#CheckFail $file 2>> $globallog
-	    echo "fail cases are not supported yet"
+        CheckFail $file 2>> $globallog
 	    ;;
 	*)
 	    echo "unknown file type $file"
