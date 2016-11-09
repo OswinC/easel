@@ -1,11 +1,11 @@
-function pix pix(pix p, int i) {
+function pix my_func1(pix p, int i) {
 	p = p + i;
 	return p;
 }
 
-function pix pix2(pix p2, int i2) {
+function pix my_func2(pix p2, int i2) {
 	p2 = p2 - i2;
 	return p2;
 }
 
-pix > pix2; /* functions cannot be compared */
+my_func1 > my_func2; /* functions cannot be compared */
