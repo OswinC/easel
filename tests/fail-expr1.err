@@ -1,1 +1,1 @@
-Fatal error: exception Parsing.Parse_error
+Fatal error: exception Failure("illegae unary operator -pix in int a = -#ff34a6")
