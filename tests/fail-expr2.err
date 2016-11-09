@@ -1,1 +1,1 @@
-Fatal error: exception Parsing.Parse_error
+Fatal error: exception Failure("illegal binar operator int + bool in a + b")
