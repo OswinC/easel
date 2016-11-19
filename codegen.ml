@@ -23,7 +23,7 @@ let translate (functions, statements) =
 	  | A.Void -> void_t
 	  | A.Pix -> pix_t
 	  | A.Arr t -> arr_t ltype_of_typ t 
-	  | A.Func (t, l) -> (* TODO: A.Func *) 
+	  | A.Func (t, l) -> (* TODO: A.Func *) in 
 
 	(* TODO: declare built-in functions *)
 	(* TODO: function definition *)
@@ -100,5 +100,9 @@ let translate (functions, statements) =
 	  									   | _ -> func ^ "_result") in
 	  		L.build_call fdef (Array.of_list actuals) result builder in
 	  		(* TODO: add terminal if there's none *)
+<<<<<<< HEAD
 	  		(* TODO: statements and the builder for the statement's successor *) 
 
+=======
+	  		(* TODO: statements and the builder for the statement's successor *)
+>>>>>>> 3646bb42ac4f05009fc8bcd9ff826c350921f0ef
