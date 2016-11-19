@@ -5,7 +5,7 @@ type op = Add | Sub | Mult | Div | Mod | Pow | Equal | Neq | Less | Leq | Greate
 
 and uop = Neg | Not | Inc | Dec | UMult | UDiv | UPow
 
-and typ = Int | Float | Bool | Void | Pix | Func of typ * typ list | Arr of typ
+and typ = Int | Float | Bool | Void | Pix | Func of typ * typ list | Arr of typ 
 
 and dectr =
     DecId of string
@@ -18,7 +18,7 @@ and expr =
   | FloatLit of float
   | BoolLit of bool
   | ArrLit of expr list
-  | PixLit of expr list
+  | PixLit of expr * expr * expr
   | Id of string
   | Binop of expr * op * expr
   | Unop of uop * expr
@@ -45,6 +45,7 @@ and func_decl = {
     fname : string;
     formals : bind list;
     body : stmt list;
+    checked: bool;
   }
 
 and program = func_decl list * stmt list
@@ -85,24 +86,33 @@ and string_of_dectr = function
 and string_of_bind (t, d) =
     string_of_typ t ^ " " ^ string_of_dectr d
 
+and string_of_uop = function
+    Neg -> "-"
+  | Not -> "!"
+  | Inc -> "++"
+  | Dec -> "--"
+  | UMult -> "**"
+  | UDiv -> "//"
+  | UPow -> "^^"
+
 and string_of_expr = function
     IntLit(l) -> string_of_int l
   | FloatLit(f) -> string_of_float f
   | BoolLit(b) -> string_of_bool b
   | ArrLit(el) -> "[" ^ String.concat ", " (List.map string_of_expr el) ^ "]"
-  | PixLit(el) -> "{" ^ String.concat ", " (List.map string_of_expr el) ^ "}"
+  | PixLit(e1, e2, e3) -> "{" ^ string_of_expr e1 ^ ", " ^ string_of_expr e2 ^ ", " ^ string_of_expr e3 ^ "}"
   | Id(s) -> s
   | Binop(e1, o, e2) ->
       string_of_expr e1 ^ " " ^ string_of_op o ^ " " ^ string_of_expr e2
   | Unop(o, e) -> 
       match o with
-      Neg -> "-" ^ string_of_expr e
-    | Not -> "!" ^ string_of_expr e
-    | Inc -> string_of_expr e ^ "++"
-    | Dec -> string_of_expr e ^ "--"
-    | UMult -> string_of_expr e ^ "**"
-    | UDiv -> string_of_expr e ^ "//"
-    | UPow -> string_of_expr e ^ "^^";
+      Neg -> string_of_uop o ^ string_of_expr e
+    | Not -> string_of_uop o ^ string_of_expr e
+    | Inc -> string_of_expr e ^ string_of_uop o
+    | Dec -> string_of_expr e ^ string_of_uop o
+    | UMult -> string_of_expr e ^ string_of_uop o
+    | UDiv -> string_of_expr e ^ string_of_uop o
+    | UPow -> string_of_expr e ^ string_of_uop o;
     ;
   | Assign(v, e) -> string_of_expr v ^ " = " ^ string_of_expr e
   | Call(f, el) ->
