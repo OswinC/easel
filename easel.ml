@@ -5,7 +5,7 @@ type action = Ast | LLVM_IR (*| Compile*)
 
 let _ =
   let action = if Array.length Sys.argv > 1 then
-      List.assoc Sys.argv.(1) [ ("-a", Ast) 	(* Print the AST only *)
+      List.assoc Sys.argv.(1) [ ("-a", Ast); 	(* Print the AST only *)
 			        ("-l", LLVM_IR)]  (* Generate LLVM, don't check *)
 			      (*("-c", Compile) ]*) (* Generate, check LLVM IR *)
   (*else Compile in*)

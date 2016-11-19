@@ -33,14 +33,28 @@ let translate (functions, statements) =
 	
 	(*let globals = *)
 	(* TODO: construct function's global variables *)
-
-	(*let locals = *)
+	let draw_t = L.var_arg_function_type void_t [| i32_t; i32_t; i32_t|] in
+	let the_function = L.declare_function "draw" draw_t the_module in 
+	let builder = L.builder_at_end context (L.entry_block the_function) in
 	(* TODO: construct function's local variables *)
+(*	let locals = 
+	   let add_formal m (t, n) p = L.set_value_name n p;
+	 let local = L.build_alloca (ltype_of_typ t) n builder in
+	    ignore (L.build_store p local builder);
+	    StringMap.add n local m in
+
+	 let add_local m (t,n) = 
+	    let local_var = L.build_alloca (ltype_of_typ t) n builder in
+	    StringMap.add n local_var m in
+
+	    let formals = List.fold_left2 add_formal StringMap.empty fdecl.A.formals
+		(Array.to_list (L.params the_function)) in 
+		List.fold_left add_local formals fdecl.A.locals in	
 
 	(* TODO: get value of var of formal argument *)
-	(*let var_name n = try StringMap.find n locals
-					 with Not_found -> StringMap.find n globals in *)
-
+	let var_name n = try StringMap.find n locals
+					 with Not_found -> StringMap.find n globals in 
+*)
 	(* Constructing code for expressions *)
 	let rec expr builder = function
 		A.IntLit i -> L.const_int i32_t i
@@ -48,13 +62,14 @@ let translate (functions, statements) =
 	  | A.BoolLit b -> L.const_int i1_t (if b then 1 else 0)
 	  (*| A.ArrLit a -> (* TODO: ArrLit *)*)
 	  | A.PixLit (p1, p2, p3) -> let p1' = expr builder p1
-                                     and p2' = expr builder p2 in
-                                     let p2''= L.build_mul p2' 256 "tmp1" builder
+                                     and p2' = expr builder p2 
+				     and i = L.const_int i32_t 256 in
+                                     let p2''= L.build_mul p2' i "tmp1" builder
                                      and p3' = expr builder p3 in
-                                     let p3'' = L.build_mul p3' 256 "tmp2" builder in
+                                     let p3'' = L.build_mul p3' (L.build_mul i i "tmp" builder) "tmp2" builder in
                                      let p12 = L.build_add p1' p2'' "tmp3" builder in
                                          L.build_add p12 p3'' "tmp4" builder
-	  | A.Id id -> L.build_load (var_name id) id builder
+	  (*| A.Id id -> L.build_load (var_name id) id builder
 	  | A.Noexpr -> L.const_int i32_t 0
 	  | A.Binop (e1, op, e2) -> 
 	  	(* TODO: define typ1 somewhere above *)
@@ -107,10 +122,10 @@ let translate (functions, statements) =
 	  		L.build_call fdef (Array.of_list actuals) result builder in
 	  		(* TODO: add terminal if there's none *)
 	  		(* TODO: statements and the builder for the statement's successor *) 
-
+*) in
     (* Build the code for each statement in the function *)
-    let builder = expr builder (A.Block fdecl.A.body) in
+    (*let builder = expr builder (A.Block fdecl.A.body) in*)
 
 
-  List.iter build_function_body functions;
+  (*List.iter build_function_body functions;*)
   the_module
