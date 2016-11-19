@@ -13,15 +13,17 @@ let translate (functions, statements) =
 	and i1_t = L.i1_type context
 	and void_t = L.void_type context
 	and pix_t = L.i24_type context
-	(* TODO: func of typ * typ list and arr of typ *) in
+	and arr_t = L.array_type
+	and func_t = L.function_type in
 
-	let ltype_of_typ = function
+	let rec ltype_of_typ = function
 	    A.Int -> i32_t
 	  | A.Float -> float_t
 	  | A.Bool -> i1_t
 	  | A.Void -> void_t
 	  | A.Pix -> pix_t
-	  | (* TODO: A.Func and A.Arr *) in
+	  | A.Arr t -> arr_t ltype_of_typ t 
+	  | A.Func (t, l) -> (* TODO: A.Func *) in 
 
 	(* TODO: declare built-in functions *)
 	(* TODO: function definition *)
@@ -98,4 +100,9 @@ let translate (functions, statements) =
 	  									   | _ -> func ^ "_result") in
 	  		L.build_call fdef (Array.of_list actuals) result builder in
 	  		(* TODO: add terminal if there's none *)
+<<<<<<< HEAD
+	  		(* TODO: statements and the builder for the statement's successor *) 
+
+=======
 	  		(* TODO: statements and the builder for the statement's successor *)
+>>>>>>> 3646bb42ac4f05009fc8bcd9ff826c350921f0ef
