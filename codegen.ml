@@ -27,9 +27,13 @@ let translate (functions, statements) =
               let t' = ltype_of_typ t in 
               arr_t t'
 
+
  	  (*| A.Func (t, l) -> i32_t(* WRONG RETURN *)*) in 
 
 	(* TODO: declare built-in functions *)
+    let extfunc_draw_def_t = L.var_arg_function_type i32_t [||] in
+    let extfunc_draw_def = L.declare_function "draw_default" extfunc_draw_def_t the_module in 
+
 
 (*	(* TODO: function definition *)
         let function_decls =
@@ -41,10 +45,7 @@ let translate (functions, statements) =
 	(* TODO: function body *)
 	(* TODO: declare statements *)
          
-	(* Declare draw_t(), which the draw built-in function will call *)
-	let draw_t = L.var_arg_function_type void_t [| i32_t; i32_t; i32_t|] in
-	let the_function = L.declare_function "draw" draw_t the_module in 
-	let builder = L.builder_at_end context (L.entry_block the_function) in
+	(*let builder = L.builder_at_end context (L.entry_block the_function) in*)
 	(* TODO: construct function's local variables *)
 (*	let locals = 
 	   let add_formal m (t, n) p = L.set_value_name n p;
@@ -134,11 +135,23 @@ let translate (functions, statements) =
 	  									   | _ -> func ^ "_result") in
 	  		L.build_call fdef (Array.of_list actuals) result builder in
 	  		(* TODO: add terminal if there's none *)
-	  		(* TODO: statements and the builder for the statement's successor *) 
-*) in
-        let rec stmt builder = function
-          A.Block sl -> List.fold_left stmt builder sl
-        | A.Expr e -> ignore (expr builder e); builder in
+	  		(* TODO: statements and the builder for the statement's successor *) *)
+      (* Call external functions *)
+      | A.Call (Id("draw"), []) ->
+        L.build_call extfunc_draw_def [||]
+	    "draw_def" builder
+    in
+
+    (* Invoke "f builder" if the current block doesn't already
+       have a terminal (e.g., a branch). *)
+    let add_terminal builder f =
+      match L.block_terminator (L.insertion_block builder) with
+	Some _ -> ()
+      | None -> ignore (f builder) in
+	
+    let rec stmt builder = function
+        A.Block sl -> List.fold_left stmt builder sl
+      | A.Expr e -> ignore (expr builder e); builder in
         (*| A.Vdef (t, d) -> 
             names= List.map d.
             variables = List.map L.build_alloca (ltype_of_typ t) d in
@@ -152,6 +165,23 @@ let translate (functions, statements) =
     (* Build the code for each statement in the function *)
     (*let builder = expr builder (A.Block fdecl.A.body) in*)
 
+    let global_stmt builder = function
+        (* initds: init_dectr list *)
+          A.Vdef(t, initds) -> builder (*TBD*)
+        | st -> stmt builder st
+    in
 
-  (*List.iter build_function_body functions;*)
-  the_module
+    let build_main_function sl =
+        (* Define the main function for executing global statements *)
+        let ftype_main = L.function_type i32_t [||] in
+        let main_func = L.define_function "main" ftype_main the_module in
+        let builder = L.builder_at_end context (L.entry_block main_func) in
+
+        List.iter (fun st -> ignore(global_stmt builder st)) sl;
+
+        (* Add a return if the last block falls off the end *)
+        add_terminal builder (L.build_ret (L.const_int i32_t 0))
+    in
+    build_main_function statements;
+    (*List.iter build_function_body functions;*)
+    the_module
