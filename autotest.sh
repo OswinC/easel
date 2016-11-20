@@ -17,7 +17,7 @@ EASEL="./easel.native"
 # Set time limit for all operations
 ulimit -t 30
 
-globallog=testall.log
+globallog=autotest.log
 rm -f $globallog
 error=0
 globalerror=0
@@ -26,7 +26,7 @@ keep=0
 ast=0
 
 Usage() {
-    echo "Usage: testall.sh [options] [.es files]"
+    echo "Usage: autotest.sh [options] [.es files]"
     echo "-k    Keep intermediate files"
     echo "-a    Test AST output"
     echo "-h    Print this help"

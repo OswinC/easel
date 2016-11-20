@@ -9,11 +9,28 @@
 #  include <GL/glut.h>
 #endif
 
+int do_draw(int *canvas, int w, int h, int x, int y);
 void render(void);
 void myglinit(void);
 
 int *easel;
 int W, H;
+
+int draw_default() {
+#define DW 960
+#define DH 960 
+    int c[DW][DH]; 
+    int x, y;
+    for (x = 0; x < DW; x++) {
+        for (y = 0; y < DH; y++) { 
+            if (x > DW/2 && y > DH/2)
+                c[x][y] = 0xffffff00; // RGBA
+            else
+                c[x][y] = 0x00000000;
+        }
+    }
+    do_draw((int *) c, DW, DH, 0, 0);
+}
 
 int do_draw(int *canvas, int w, int h, int x, int y) {
     char *fake_argv[1];
@@ -43,15 +60,19 @@ int do_draw(int *canvas, int w, int h, int x, int y) {
 }
 
 void render(void) {
+#ifdef _DEBUG
     printf("in render\n");
+#endif // _DEBUG
 
-    /*int x, y;*/
-    /*for (y = 0; y < H; y++) {*/
-        /*for (x = 0; x < W; x++) {*/
-            /*printf("%d ", easel[(y * W + x)]);*/
-        /*}*/
-        /*printf("\n");*/
-    /*}*/
+#ifdef _DEBUG_VERB
+    int x, y;
+    for (y = 0; y < H; y++) {
+        for (x = 0; x < W; x++) {
+            printf("%d ", easel[(y * W + x)]);
+        }
+        printf("\n");
+    }
+#endif // _DEBUG_VERB
 
     // drawpixels draws the rgb data stored in 'easel' to the screen
     glDrawPixels(W, H, GL_RGBA, GL_UNSIGNED_INT_8_8_8_8, easel);
