@@ -60,15 +60,19 @@ int do_draw(int *canvas, int w, int h, int x, int y) {
 }
 
 void render(void) {
+#ifdef _DEBUG
     printf("in render\n");
+#endif // _DEBUG
 
-    /*int x, y;*/
-    /*for (y = 0; y < H; y++) {*/
-        /*for (x = 0; x < W; x++) {*/
-            /*printf("%d ", easel[(y * W + x)]);*/
-        /*}*/
-        /*printf("\n");*/
-    /*}*/
+#ifdef _DEBUG_VERB
+    int x, y;
+    for (y = 0; y < H; y++) {
+        for (x = 0; x < W; x++) {
+            printf("%d ", easel[(y * W + x)]);
+        }
+        printf("\n");
+    }
+#endif // _DEBUG_VERB
 
     // drawpixels draws the rgb data stored in 'easel' to the screen
     glDrawPixels(W, H, GL_RGBA, GL_UNSIGNED_INT_8_8_8_8, easel);
