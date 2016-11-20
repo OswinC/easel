@@ -26,7 +26,6 @@ ${OUT_DIR}:
 
 $(TARGETLIB): $(OUT_DIR)/$(OBJ)
 	$(AR) rcs $@ $^
-	echo $(TARGETAPPS)
 
 $(OUT_DIR)/%.o: %.c
 	$(CC) -c -o $@ $^
