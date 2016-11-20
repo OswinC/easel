@@ -26,13 +26,18 @@ let translate (functions, statements) =
 	  | A.Func (t, l) -> i32_t(* WRONG RETURN *) in 
 
 	(* TODO: declare built-in functions *)
+
 	(* TODO: function definition *)
+        (*let function_decls =
+          let function_decl m fdecl =
+            let name=fdecl.A.fname
+            and formal_types = 
+              Array.of_list (List.*)
 	(* let func_decls = *)
 	(* TODO: function body *)
 	(* TODO: declare statements *)
-	
-	(*let globals = *)
-	(* TODO: construct function's global variables *)
+ 
+	(* Declare draw_t(), which the draw built-in function will call *)
 	let draw_t = L.var_arg_function_type void_t [| i32_t; i32_t; i32_t|] in
 	let the_function = L.declare_function "draw" draw_t the_module in 
 	let builder = L.builder_at_end context (L.entry_block the_function) in
@@ -63,10 +68,11 @@ let translate (functions, statements) =
 	  (*| A.ArrLit a -> (* TODO: ArrLit *)*)
 	  | A.PixLit (p1, p2, p3) -> let p1' = expr builder p1
                                      and p2' = expr builder p2 
+                                     and p3' = expr builder p3 
 				     and i = L.const_int i32_t 256 in
-                                     let p2''= L.build_mul p2' i "tmp1" builder
-                                     and p3' = expr builder p3 in
-                                     let p3'' = L.build_mul p3' (L.build_mul i i "tmp" builder) "tmp2" builder in
+                                     let ii = L.build_mul i i "tmp" builder in
+                                     let p2'' = L.build_mul p2' i "tmp1" builder
+                                     and p3'' = L.build_mul p3' ii "tmp2" builder in
                                      let p12 = L.build_add p1' p2'' "tmp3" builder in
                                          L.build_add p12 p3'' "tmp4" builder
 	  (*| A.Id id -> L.build_load (var_name id) id builder
