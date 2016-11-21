@@ -13,29 +13,39 @@ let translate (functions, statements) =
 	and i1_t = L.i1_type context
 	and void_t = L.void_type context
 	and pix_t = L.i32_type context
-	(*and arr_t = L.array_type *)
+	and arr_t = L.pointer_type 
+        
 	(*and func_t = L.function_type *)in
 
-	let ltype_of_typ = function
+	let rec ltype_of_typ = function
 	    A.Int -> i32_t
 	  | A.Float -> float_t
 	  | A.Bool -> i1_t
 	  | A.Void -> void_t
 	  | A.Pix -> pix_t 
-	  | A.Arr(t) -> i32_t (* WRONG RETURN *)
-	  | A.Func (t, l) -> i32_t(* WRONG RETURN *) in 
+	  | A.Arr(t)  -> 
+              let t' = ltype_of_typ t in 
+              arr_t t'
+
+
+ 	  (*| A.Func (t, l) -> i32_t(* WRONG RETURN *)*) in 
 
 	(* TODO: declare built-in functions *)
-	(* TODO: function definition *)
-	(* let func_decls = *)
+    let extfunc_draw_def_t = L.var_arg_function_type i32_t [||] in
+    let extfunc_draw_def = L.declare_function "draw_default" extfunc_draw_def_t the_module in 
+
+
+(*	(* TODO: function definition *)
+        let function_decls =
+          let function_decl m fdecl =
+            let name=fdecl.A.fname
+            and formal_types = 
+              Array.of_list (List.map (fun (t,_) -> ltype_typ t))
+	(* let func_decls = *)*)
 	(* TODO: function body *)
 	(* TODO: declare statements *)
-	
-	(*let globals = *)
-	(* TODO: construct function's global variables *)
-	let draw_t = L.var_arg_function_type void_t [| i32_t; i32_t; i32_t|] in
-	let the_function = L.declare_function "draw" draw_t the_module in 
-	let builder = L.builder_at_end context (L.entry_block the_function) in
+         
+	(*let builder = L.builder_at_end context (L.entry_block the_function) in*)
 	(* TODO: construct function's local variables *)
 (*	let locals = 
 	   let add_formal m (t, n) p = L.set_value_name n p;
@@ -54,6 +64,12 @@ let translate (functions, statements) =
 	(* TODO: get value of var of formal argument *)
 	let var_name n = try StringMap.find n locals
 					 with Not_found -> StringMap.find n globals in 
+
+        (* Constructing code for declarations *)
+
+	(* TODO: get value of var of formal argument *)
+	let var_name n = try StringMap.find n locals
+					 with Not_found -> StringMap.find n globals in 
 *)
 	(* Constructing code for expressions *)
 	let rec expr builder = function
@@ -63,10 +79,11 @@ let translate (functions, statements) =
 	  (*| A.ArrLit a -> (* TODO: ArrLit *)*)
 	  | A.PixLit (p1, p2, p3) -> let p1' = expr builder p1
                                      and p2' = expr builder p2 
+                                     and p3' = expr builder p3 
 				     and i = L.const_int i32_t 256 in
-                                     let p2''= L.build_mul p2' i "tmp1" builder
-                                     and p3' = expr builder p3 in
-                                     let p3'' = L.build_mul p3' (L.build_mul i i "tmp" builder) "tmp2" builder in
+                                     let ii = L.build_mul i i "tmp" builder in
+                                     let p2'' = L.build_mul p2' i "tmp1" builder
+                                     and p3'' = L.build_mul p3' ii "tmp2" builder in
                                      let p12 = L.build_add p1' p2'' "tmp3" builder in
                                          L.build_add p12 p3'' "tmp4" builder
 	  (*| A.Id id -> L.build_load (var_name id) id builder
@@ -121,11 +138,53 @@ let translate (functions, statements) =
 	  									   | _ -> func ^ "_result") in
 	  		L.build_call fdef (Array.of_list actuals) result builder in
 	  		(* TODO: add terminal if there's none *)
-	  		(* TODO: statements and the builder for the statement's successor *) 
-*) in
+	  		(* TODO: statements and the builder for the statement's successor *) *)
+      (* Call external functions *)
+      | A.Call (Id("draw"), []) ->
+        L.build_call extfunc_draw_def [||]
+	    "draw_def" builder
+    in
+
+    (* Invoke "f builder" if the current block doesn't already
+       have a terminal (e.g., a branch). *)
+    let add_terminal builder f =
+      match L.block_terminator (L.insertion_block builder) with
+	Some _ -> ()
+      | None -> ignore (f builder) in
+	
+    let rec stmt builder = function
+        A.Block sl -> List.fold_left stmt builder sl
+      | A.Expr e -> ignore (expr builder e); builder in
+        (*| A.Vdef (t, d) -> 
+            names= List.map d.
+            variables = List.map L.build_alloca (ltype_of_typ t) d in
+            StringMap.add n variable m i
+        | A.Return of expr
+        | If of expr * stmt * stmt
+        | For of expr * expr * expr * stmt
+        | While of expr * stmt*)
+
+
     (* Build the code for each statement in the function *)
     (*let builder = expr builder (A.Block fdecl.A.body) in*)
 
+    let global_stmt builder = function
+        (* initds: init_dectr list *)
+          A.Vdef(t, initds) -> builder (*TBD*)
+        | st -> stmt builder st
+    in
 
-  (*List.iter build_function_body functions;*)
-  the_module
+    let build_main_function sl =
+        (* Define the main function for executing global statements *)
+        let ftype_main = L.function_type i32_t [||] in
+        let main_func = L.define_function "main" ftype_main the_module in
+        let builder = L.builder_at_end context (L.entry_block main_func) in
+
+        List.iter (fun st -> ignore(global_stmt builder st)) sl;
+
+        (* Add a return if the last block falls off the end *)
+        add_terminal builder (L.build_ret (L.const_int i32_t 0))
+    in
+    build_main_function statements;
+    (*List.iter build_function_body functions;*)
+    the_module
