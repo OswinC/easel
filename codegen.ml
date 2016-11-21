@@ -17,22 +17,22 @@ let translate (functions, statements) =
         
 	(*and func_t = L.function_type *)in
 
-	let rec ltype_of_typ = function
+	let rec lltype_of_typ = function
 	    A.Int -> i32_t
 	  | A.Float -> float_t
 	  | A.Bool -> i1_t
 	  | A.Void -> void_t
 	  | A.Pix -> pix_t 
 	  | A.Arr(t) -> 
-              let t' = ltype_of_typ t in 
+              let t' = lltype_of_typ t in 
               L.pointer_type t'
 
 
  	  (*| A.Func (t, l) -> i32_t(* WRONG RETURN *)*) in 
 
-    let rec ltype_of_dectr t = function
-        A.DecArr(d, l) -> arr_t (ltype_of_dectr t d) l
-      | A.DecId(_) -> ltype_of_typ t
+    let rec lltype_of_dectr t = function
+        A.DecArr(d, l) -> arr_t (lltype_of_dectr t d) l
+      | A.DecId(_) -> lltype_of_typ t
     in
 
     let rec llval_of_dectr t = function
@@ -40,8 +40,8 @@ let translate (functions, statements) =
         (* 2-D: L.const_array (arr_t pix_t 10) [|... |]*)
         (* 3-D: L.const_array (arr_t (arr_t 5) 10) [|... |]*)
         (* Scalar: L.const_int pix_t 0*)
-        A.DecArr(d, l) -> L.const_array (ltype_of_dectr t d) (Array.make l (llval_of_dectr t d))
-      | A.DecId(id) -> L.const_int (ltype_of_typ t) 0 
+        A.DecArr(d, l) -> L.const_array (lltype_of_dectr t d) (Array.make l (llval_of_dectr t d))
+      | A.DecId(id) -> L.const_int (lltype_of_typ t) 0 
     in
 
     let rec id_of_dectr = function
@@ -69,7 +69,7 @@ let translate (functions, statements) =
           let function_decl m fdecl =
             let name=fdecl.A.fname
             and formal_types = 
-              Array.of_list (List.map (fun (t,_) -> ltype_typ t))
+              Array.of_list (List.map (fun (t,_) -> lltype_typ t))
 	(* let func_decls = *)*)
 	(* TODO: function body *)
 	(* TODO: declare statements *)
@@ -78,12 +78,12 @@ let translate (functions, statements) =
 	(* TODO: construct function's local variables *)
 (*	let locals = 
 	   let add_formal m (t, n) p = L.set_value_name n p;
-	 let local = L.build_alloca (ltype_of_typ t) n builder in
+	 let local = L.build_alloca (lltype_of_typ t) n builder in
 	    ignore (L.build_store p local builder);
 	    StringMap.add n local m in
 
 	 let add_local m (t,n) = 
-	    let local_var = L.build_alloca (ltype_of_typ t) n builder in
+	    let local_var = L.build_alloca (lltype_of_typ t) n builder in
 	    StringMap.add n local_var m in
 
 	    let formals = List.fold_left2 add_formal StringMap.empty fdecl.A.formals
@@ -184,7 +184,7 @@ let translate (functions, statements) =
       | A.Expr e -> ignore (expr builder e); builder in
         (*| A.Vdef (t, d) -> 
             names= List.map d.
-            variables = List.map L.build_alloca (ltype_of_typ t) d in
+            variables = List.map L.build_alloca (lltype_of_typ t) d in
             StringMap.add n variable m i
         | A.Return of expr
         | If of expr * stmt * stmt
