@@ -13,26 +13,58 @@ let translate (functions, statements) =
 	and i1_t = L.i1_type context
 	and void_t = L.void_type context
 	and pix_t = L.i32_type context
-	and arr_t = L.pointer_type 
+	and arr_t t n = L.array_type t n 
+	and ptr_t t = L.pointer_type t
         
 	(*and func_t = L.function_type *)in
 
-	let rec ltype_of_typ = function
+	let rec lltype_of_typ = function
 	    A.Int -> i32_t
 	  | A.Float -> float_t
 	  | A.Bool -> i1_t
 	  | A.Void -> void_t
 	  | A.Pix -> pix_t 
-	  | A.Arr(t)  -> 
-              let t' = ltype_of_typ t in 
-              arr_t t'
+	  | A.Arr(t) -> 
+              let t' = lltype_of_typ t in 
+              ptr_t t'
 
 
  	  (*| A.Func (t, l) -> i32_t(* WRONG RETURN *)*) in 
 
-	(* TODO: declare built-in functions *)
+    let rec lltype_of_dectr t = function
+        A.DecArr(d, l) -> arr_t (lltype_of_dectr t d) l
+      | A.DecId(_) -> lltype_of_typ t
+    in
+
+    let rec llval_of_dectr t = function
+        (* 1-D: L.const_array pix_t [|L.const_int pix_t 0; L.const_int pix_t 0; ...|]*)
+        (* 2-D: L.const_array (arr_t pix_t 10) [|... |]*)
+        (* 3-D: L.const_array (arr_t (arr_t 5) 10) [|... |]*)
+        (* Scalar: L.const_int pix_t 0*)
+        A.DecArr(d, l) -> L.const_array (lltype_of_dectr t d) (Array.make l (llval_of_dectr t d))
+      | A.DecId(id) -> L.const_int (lltype_of_typ t) 0 
+    in
+
+    let rec id_of_dectr = function
+        A.DecId(id) -> id
+      | A.DecArr(d, _) -> id_of_dectr d
+    in 
+
+    let globals = Hashtbl.create 8 in
+
+    (* initd: init_dectr *)
+    let global_var t = function A.InitDectr(dectr, init) ->
+      (* TODO: if init is not empty, parse it and use it *)
+      let init = llval_of_dectr t dectr in
+      let n = id_of_dectr dectr in
+      Hashtbl.add globals n (L.define_global n init the_module)
+    in
+
+	(* built-in functions *)
     let extfunc_draw_def_t = L.var_arg_function_type i32_t [||] in
     let extfunc_draw_def = L.declare_function "draw_default" extfunc_draw_def_t the_module in 
+    let extfunc_do_draw_t = L.var_arg_function_type i32_t [|ptr_t i32_t; i32_t; i32_t; i32_t; i32_t|] in
+    let extfunc_do_draw = L.declare_function "do_draw" extfunc_do_draw_t the_module in 
 
 
 (*	(* TODO: function definition *)
@@ -40,7 +72,7 @@ let translate (functions, statements) =
           let function_decl m fdecl =
             let name=fdecl.A.fname
             and formal_types = 
-              Array.of_list (List.map (fun (t,_) -> ltype_typ t))
+              Array.of_list (List.map (fun (t,_) -> lltype_typ t))
 	(* let func_decls = *)*)
 	(* TODO: function body *)
 	(* TODO: declare statements *)
@@ -49,12 +81,12 @@ let translate (functions, statements) =
 	(* TODO: construct function's local variables *)
 (*	let locals = 
 	   let add_formal m (t, n) p = L.set_value_name n p;
-	 let local = L.build_alloca (ltype_of_typ t) n builder in
+	 let local = L.build_alloca (lltype_of_typ t) n builder in
 	    ignore (L.build_store p local builder);
 	    StringMap.add n local m in
 
 	 let add_local m (t,n) = 
-	    let local_var = L.build_alloca (ltype_of_typ t) n builder in
+	    let local_var = L.build_alloca (lltype_of_typ t) n builder in
 	    StringMap.add n local_var m in
 
 	    let formals = List.fold_left2 add_formal StringMap.empty fdecl.A.formals
@@ -140,6 +172,7 @@ let translate (functions, statements) =
 	  		(* TODO: add terminal if there's none *)
 	  		(* TODO: statements and the builder for the statement's successor *) *)
       (* Call external functions *)
+      (* int draw() *)
       | A.Call (Id("draw"), []) ->
         L.build_call extfunc_draw_def [||]
 	    "draw_def" builder
@@ -157,7 +190,7 @@ let translate (functions, statements) =
       | A.Expr e -> ignore (expr builder e); builder in
         (*| A.Vdef (t, d) -> 
             names= List.map d.
-            variables = List.map L.build_alloca (ltype_of_typ t) d in
+            variables = List.map L.build_alloca (lltype_of_typ t) d in
             StringMap.add n variable m i
         | A.Return of expr
         | If of expr * stmt * stmt
@@ -170,7 +203,7 @@ let translate (functions, statements) =
 
     let global_stmt builder = function
         (* initds: init_dectr list *)
-          A.Vdef(t, initds) -> builder (*TBD*)
+          A.Vdef(t, initds) -> List.iter (global_var t) initds; builder
         | st -> stmt builder st
     in
 
