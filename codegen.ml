@@ -14,6 +14,7 @@ let translate (functions, statements) =
 	and void_t = L.void_type context
 	and pix_t = L.i32_type context
 	and arr_t t n = L.array_type t n 
+	and ptr_t t = L.pointer_type t
         
 	(*and func_t = L.function_type *)in
 
@@ -25,7 +26,7 @@ let translate (functions, statements) =
 	  | A.Pix -> pix_t 
 	  | A.Arr(t) -> 
               let t' = lltype_of_typ t in 
-              L.pointer_type t'
+              ptr_t t'
 
 
  	  (*| A.Func (t, l) -> i32_t(* WRONG RETURN *)*) in 
@@ -59,9 +60,11 @@ let translate (functions, statements) =
       Hashtbl.add globals n (L.define_global n init the_module)
     in
 
-	(* TODO: declare built-in functions *)
+	(* built-in functions *)
     let extfunc_draw_def_t = L.var_arg_function_type i32_t [||] in
     let extfunc_draw_def = L.declare_function "draw_default" extfunc_draw_def_t the_module in 
+    let extfunc_do_draw_t = L.var_arg_function_type i32_t [|ptr_t i32_t; i32_t; i32_t; i32_t; i32_t|] in
+    let extfunc_do_draw = L.declare_function "do_draw" extfunc_do_draw_t the_module in 
 
 
 (*	(* TODO: function definition *)
