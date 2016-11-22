@@ -5,7 +5,9 @@
    * To set up the opengl environment for drawing functionality:
      * LINUX USERS (Recommended to run in the VM)
      * On the command line, install the following packages like so: 
-             $sudo apt-get install freeglut3 freeglut3-dev libglew-dev gle-graphics
+     ```
+        $sudo apt-get install freeglut3 freeglut3-dev libglew-dev gle-graphics
+     ```
    * $ cd /path/to/easel/compiler/source/
    * $ make
    * $ ./easel.native -a < tests/anonsquare.es
