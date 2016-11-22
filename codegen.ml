@@ -215,6 +215,6 @@ let translate (functions, statements) =
         (* Add a return if the last block falls off the end *)
         add_terminal builder (L.build_ret (L.const_int i32_t 0))
     in
-    build_main_function statements;
+    build_main_function (List.rev statements);
     (*List.iter build_function_body functions;*)
     the_module
