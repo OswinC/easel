@@ -13,7 +13,7 @@ TARGETAPPS = $(foreach app, $(notdir $(APPS)), $(OUT_DIR)/$(app))
 
 GLFLAGS = -L$(OUT_DIR) -l$(LIBNAME) -lGL -lGLEW -lglut -lm
 
-.PHONY: all dir
+.PHONY: all dir clean
 
 TARGET = $(TARGETLIB) $(TARGETAPPS)
 
@@ -36,3 +36,6 @@ $(OUT_DIR)/%: $(APP_DIR)/$(notdir %.c) $(TARGETLIB)
 $(OUT_DIR)/%: $(APP_DIR)/$(notdir %.ll) $(TARGETLIB)
 	llc -o $@.s $<
 	gcc -o $@ $@.s $(GLFLAGS)
+
+clean:
+	$(RM) -rf $(OUT_DIR)

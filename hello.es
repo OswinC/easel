@@ -1,3 +1,3 @@
-pix canvas[960][960];
+pix canvas[960][720];
 
 draw(canvas, 200, 200);
