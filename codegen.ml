@@ -50,6 +50,16 @@ let translate (functions, statements) =
       | A.DecArr(d, _) -> id_of_dectr d
     in 
 
+    let sub_dectr = function
+        A.DecId(_) as d -> d
+      | A.DecArr(d, _) -> d
+    in 
+
+    let decarr_len = function
+        A.DecArr(_, l) -> l
+      | A.DecId(id) -> raise (Failure (id ^ " is not an array"))
+    in 
+
     let globals = Hashtbl.create 8 in
 
     (* initd: init_dectr *)
@@ -57,7 +67,7 @@ let translate (functions, statements) =
       (* TODO: if init is not empty, parse it and use it *)
       let init = llval_of_dectr t dectr in
       let n = id_of_dectr dectr in
-      Hashtbl.add globals n (L.define_global n init the_module)
+      Hashtbl.add globals n (L.define_global n init the_module, (t, dectr))
     in
 
 	(* built-in functions *)
@@ -92,11 +102,11 @@ let translate (functions, statements) =
 	    let formals = List.fold_left2 add_formal StringMap.empty fdecl.A.formals
 		(Array.to_list (L.params the_function)) in 
 		List.fold_left add_local formals fdecl.A.locals in	
-
-	(* TODO: get value of var of formal argument *)
-	let var_name n = try StringMap.find n locals
-					 with Not_found -> StringMap.find n globals in 
 *)
+
+	(* TODO: lookup local table before go into globals *)
+	let lookup n = (*try StringMap.find n locals
+					 with Not_found ->*) Hashtbl.find globals n in 
 
         (* Constructing code for declarations *)
 
@@ -115,7 +125,8 @@ let translate (functions, statements) =
                                      and p3'' = L.build_mul p3' ii "tmp2" builder in
                                      let p12 = L.build_add p1' p2'' "tmp3" builder in
                                          L.build_add p12 p3'' "tmp4" builder
-	  (*| A.Id id -> L.build_load (var_name id) id builder
+      | A.Id id -> L.build_load (fst (lookup id)) id builder
+      (*
 	  | A.Noexpr -> L.const_int i32_t 0
 	  | A.Binop (e1, op, e2) -> 
 	  	(* TODO: define typ1 somewhere above *)
@@ -171,8 +182,18 @@ let translate (functions, statements) =
       (* Call external functions *)
       (* int draw() *)
       | A.Call (Id("draw"), []) ->
-        L.build_call extfunc_draw_def [||]
-	    "draw_def" builder
+        L.build_call extfunc_draw_def [||] "draw_def" builder
+      | A.Call (Id("draw"), [Id(cid); e2; e3]) ->
+        let c = lookup cid in
+        let c_llval = fst c in
+        let c_col = snd (snd c) in
+        let c_row = sub_dectr c_col in
+        let w = decarr_len c_row in
+        let h = decarr_len c_col in
+        let zero = L.const_int i32_t 0 in
+        let c_ptr = L.build_in_bounds_gep c_llval [|zero; zero; zero|] "cnvstmp" builder in
+        L.build_call extfunc_do_draw [| c_ptr; L.const_int i32_t w; L.const_int i32_t h;
+                                        expr builder e2; expr builder e3 |] "do_draw" builder
     in
 
     (* Invoke "f builder" if the current block doesn't already
