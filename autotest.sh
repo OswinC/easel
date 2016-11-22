@@ -6,7 +6,7 @@
 #  Compile and check the error of each expected-to-fail test
 
 # Path to the LLVM interpreter
-#LLI="lli"
+LLI="lli"
 #LLI="/usr/local/opt/llvm/bin/lli"
 
 # Path to the easel compiler.  Usually "./easel.native"
@@ -161,8 +161,6 @@ while getopts "hka" c; do
 	    ;;
     esac
 done
-
-[ $ast -eq 0 ] && echo "Only supports checking AST with -a option" && exit 10
 
 shift `expr $OPTIND - 1`
 # Parameters appearing after double dash are positional parameters
