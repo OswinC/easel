@@ -110,9 +110,6 @@ let translate (functions, statements) =
 
         (* Constructing code for declarations *)
 
-	(* TODO: get value of var of formal argument *)
-	let var_name n = try StringMap.find n locals
-					 with Not_found -> StringMap.find n globals in 
 	(* Constructing code for expressions *)
 	let rec expr builder = function
 		A.IntLit i -> L.const_int i32_t i
