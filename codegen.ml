@@ -9,6 +9,7 @@ let translate (functions, statements) =
 	let context = L.global_context() in
 	let the_module = L.create_module context "easel"
 	and i32_t = L.i32_type context
+    and i8_t = L.i8_type   context
 	and float_t = L.float_type context
 	and i1_t = L.i1_type context
 	and void_t = L.void_type context
@@ -75,7 +76,8 @@ let translate (functions, statements) =
     let extfunc_draw_def = L.declare_function "draw_default" extfunc_draw_def_t the_module in 
     let extfunc_do_draw_t = L.var_arg_function_type i32_t [|ptr_t i32_t; i32_t; i32_t; i32_t; i32_t|] in
     let extfunc_do_draw = L.declare_function "do_draw" extfunc_do_draw_t the_module in 
-
+    let extfunc_printf_t = L.var_arg_function_type i32_t [| L.pointer_type i8_t |] in
+    let extfunc_printf = L.declare_function "printf" extfunc_printf_t the_module in
 
 (*	(* TODO: function definition *)
         let function_decls =
@@ -194,6 +196,9 @@ let translate (functions, statements) =
         let c_ptr = L.build_in_bounds_gep c_llval [|zero; zero; zero|] "cnvstmp" builder in
         L.build_call extfunc_do_draw [| c_ptr; L.const_int i32_t w; L.const_int i32_t h;
                                         expr builder e2; expr builder e3 |] "do_draw" builder
+      | A.Call (Id("print"), [e]) -> 
+        let int_format_str = L.build_global_stringptr "%d\n" "fmt" builder in
+        L.build_call extfunc_printf [| int_format_str ; (expr builder e) |] "printf" builder
     in
 
     (* Invoke "f builder" if the current block doesn't already
