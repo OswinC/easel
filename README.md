@@ -12,6 +12,7 @@
    * $ make
    * $ ./easel.native -a < tests/anonsquare.es
    * The AST of tests/anonsquare.es should be printed on your console
+   
 ###v0.1
 1. The easel language can be parsed and built into an AST. The rules of the grammar are implemented in ast.ml, scanner.mll, and parser.mly. Please refer to the .es source files under tests/ to have a taste of easel program.
 2. Steps for playing easel:
