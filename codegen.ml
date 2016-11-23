@@ -181,6 +181,11 @@ let translate (functions, statements) =
 	  		L.build_call fdef (Array.of_list actuals) result builder in
 	  		(* TODO: add terminal if there's none *)
 	  		(* TODO: statements and the builder for the statement's successor *) *)
+      | A.Assign(e1, e2) -> let e1' = (match e1 with 
+					  A.Id s -> lookup s
+					)
+			    and e2' = expr builder e2 in
+			  ignore(L.build_store e2' (fst e1') builder); e2'
       (* Call external functions *)
       (* int draw() *)
       | A.Call (Id("draw"), []) ->
