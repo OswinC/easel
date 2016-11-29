@@ -1,9 +1,13 @@
 (* easel code generation *)
 
 module L = Llvm
-module A = Ast
-
+module A = Ast 
 module StringMap = Map.Make(String)
+
+type easel_env = {
+    locals: (L.llvalue * (A.typ * A.dectr)) StringMap.t;
+    builder: L.llbuilder; 
+}
 
 let translate (functions, statements) = 
 	let context = L.global_context() in
@@ -63,12 +67,20 @@ let translate (functions, statements) =
 
     let globals = Hashtbl.create 8 in
 
-    (* initd: init_dectr *)
     let global_var t = function A.InitDectr(dectr, init) ->
       (* TODO: if init is not empty, parse it and use it *)
-      let init = llval_of_dectr t dectr in
+      let inst = llval_of_dectr t dectr in
       let n = id_of_dectr dectr in
-      Hashtbl.add globals n (L.define_global n init the_module, (t, dectr))
+      Hashtbl.add globals n (L.define_global n inst the_module, (t, dectr))
+    in
+
+    let local_var t env = function A.InitDectr(dectr, init) ->
+      (* TODO: if init is not empty, parse it and use it *)
+      (*let inst = llval_of_dectr t dectr in*)
+      let n = id_of_dectr dectr in
+      let loc = L.build_alloca (lltype_of_typ t) n env.builder in
+      let locals = StringMap.add n (loc, (t, dectr)) env.locals in
+      { locals = locals; builder = env.builder}
     in
 
 	(* built-in functions *)
@@ -107,33 +119,33 @@ let translate (functions, statements) =
 *)
 
 	(* TODO: lookup local table before go into globals *)
-	let lookup n = (*try StringMap.find n locals
-					 with Not_found ->*) Hashtbl.find globals n in 
+	let lookup env n = try StringMap.find n env.locals
+					 with Not_found -> Hashtbl.find globals n in 
 
         (* Constructing code for declarations *)
 
 	(* Constructing code for expressions *)
-	let rec expr builder = function
+	let rec expr env = function
 		A.IntLit i -> L.const_int i32_t i
 	  | A.FloatLit f -> L.const_float float_t f
 	  | A.BoolLit b -> L.const_int i1_t (if b then 1 else 0)
 	  (*| A.ArrLit a -> (* TODO: ArrLit *)*)
-	  | A.PixLit (p1, p2, p3) -> let p1' = expr builder p1
-                                     and p2' = expr builder p2 
-                                     and p3' = expr builder p3 
+	  | A.PixLit (p1, p2, p3) -> let p1' = expr env p1
+                                     and p2' = expr env p2 
+                                     and p3' = expr env p3 
 				     and i = L.const_int i32_t 256 in
-                                     let ii = L.build_mul i i "tmp" builder in
-                                     let p2'' = L.build_mul p2' i "tmp1" builder
-                                     and p3'' = L.build_mul p3' ii "tmp2" builder in
-                                     let p12 = L.build_add p1' p2'' "tmp3" builder in
-                                         L.build_add p12 p3'' "tmp4" builder
-      | A.Id id -> L.build_load (fst (lookup id)) id builder
+                                     let ii = L.build_mul i i "tmp" env.builder in
+                                     let p2'' = L.build_mul p2' i "tmp" env.builder
+                                     and p3'' = L.build_mul p3' ii "tmp" env.builder in
+                                     let p12 = L.build_add p1' p2'' "tmp" env.builder in
+                                         L.build_add p12 p3'' "tmp" env.builder
+      | A.Id id -> L.build_load (fst (lookup env id)) id env.builder
       (*
 	  | A.Noexpr -> L.const_int i32_t 0
 	  | A.Binop (e1, op, e2) -> 
 	  	(* TODO: define typ1 somewhere above *)
-	  	let (exp1, typ1) = expr builder e1
-	  	and (exp2, _) = expr builder e2 in
+	  	let (exp1, typ1) = expr env e1
+	  	and (exp2, _) = expr env e2 in
 	  	(match op with 
 	  	  A.Add -> if typ1 = A.Int then L.build_add else L.build_fadd
 	  	| A.Sub -> if typ1 = A.Int then L.build_sub else L.build_fsub
@@ -155,9 +167,9 @@ let translate (functions, statements) =
 	  			   else (L.build_fcmp L.Fcmp.Oge)
 	  	| A.And -> L.build_and
 	  	| A.Or -> L.build_or
-	  	) exp1 typ exp2 "tmp" builder (* TODO: is this line the correct syntax? *)
+	  	) exp1 typ exp2 "tmp" env.builder (* TODO: is this line the correct syntax? *)
 	  | A.Unop(op, e) ->
-	    let (exp, t) = expr builder e in
+	    let (exp, t) = expr env e in
 	    (match op with
 	    	A.Neg -> L.build_neg
 	      | A.Not -> L.build_not
@@ -169,43 +181,43 @@ let translate (functions, statements) =
 	      | A.UMult ->
 	      | A.UDiv ->
 	      | A.UPow -> *)
-	    ) exp typ "tmp" builder
-	  | A.Assign (s,e) -> let exp = expr builder e in
-	  					ignore (L.build_store exp (lookup s) builder); exp
+	    ) exp typ "tmp" env.builder
+	  | A.Assign (s,e) -> let exp = expr env e in
+	  					ignore (L.build_store exp (lookup env s) env.builder); exp
 	  (*TODO: EleAt, PropAcc, AnonFunc, finish Call *)
 	  | A.Call (func, act) -> 
 	  	let (fdef, fdecl) = StringMap.find func func_decls in 
-	  	let actuals = List.rev (List.map (expr builder) (List.rev act)) in
+	  	let actuals = List.rev (List.map (expr env) (List.rev act)) in
 	  	let result = (match fdecl.A.typ with A.Void -> ""
 	  									   | _ -> func ^ "_result") in
-	  		L.build_call fdef (Array.of_list actuals) result builder in
+	  		L.build_call fdef (Array.of_list actuals) result env.builder in
 	  		(* TODO: add terminal if there's none *)
 	  		(* TODO: statements and the builder for the statement's successor *) *)
       | A.Assign(e1, e2) -> let e1' = (match e1 with 
-					  A.Id s -> lookup s
-					| A.EleAt(arr, ind) -> let a = expr builder arr in 
-							       L.build_gep a [| expr builder ind |] a builder
+					  A.Id s -> lookup env s
+					(*| A.EleAt(arr, ind) -> let a = expr env arr in 
+							       L.build_gep a [| L.const_int i32_t 0; expr env ind |] a env.builder*)
 					)
-			    and e2' = expr builder e2 in
-			  ignore(L.build_store e2' (fst e1') builder); e2'
+			    and e2' = expr env e2 in
+			  ignore(L.build_store e2' (fst e1') env.builder); e2'
       (* Call external functions *)
       (* int draw() *)
       | A.Call (Id("draw"), []) ->
-        L.build_call extfunc_draw_def [||] "draw_def" builder
+        L.build_call extfunc_draw_def [||] "draw_def" env.builder
       | A.Call (Id("draw"), [Id(cid); e2; e3]) ->
-        let c = lookup cid in
+        let c = lookup env cid in
         let c_llval = fst c in
         let c_col = snd (snd c) in
         let c_row = sub_dectr c_col in
         let w = decarr_len c_row in
         let h = decarr_len c_col in
         let zero = L.const_int i32_t 0 in
-        let c_ptr = L.build_in_bounds_gep c_llval [|zero; zero; zero|] "cnvstmp" builder in
+        let c_ptr = L.build_in_bounds_gep c_llval [|zero; zero; zero|] "cnvstmp" env.builder in
         L.build_call extfunc_do_draw [| c_ptr; L.const_int i32_t w; L.const_int i32_t h;
-                                        expr builder e2; expr builder e3 |] "do_draw" builder
+                                        expr env e2; expr env e3 |] "do_draw" env.builder
       | A.Call (Id("print"), [e]) -> 
-        let int_format_str = L.build_global_stringptr "%d\n" "fmt" builder in
-        L.build_call extfunc_printf [| int_format_str ; (expr builder e) |] "printf" builder
+        let int_format_str = L.build_global_stringptr "%d\n" "fmt" env.builder in
+        L.build_call extfunc_printf [| int_format_str ; (expr env e) |] "printf" env.builder
     in
 
     (* Invoke "f builder" if the current block doesn't already
@@ -215,26 +227,27 @@ let translate (functions, statements) =
 	Some _ -> ()
       | None -> ignore (f builder) in
 	
-    let rec stmt builder = function
-        A.Block sl -> List.fold_left stmt builder sl
-      | A.Expr e -> ignore (expr builder e); builder in
-        (*| A.Vdef (t, d) -> 
-            names= List.map d.
-            variables = List.map L.build_alloca (lltype_of_typ t) d in
-            StringMap.add n variable m i
-        | A.Return of expr
+    let rec stmt env = function
+        (* Discard the locals built in the inner block *)
+        A.Block sl -> ignore(List.fold_left stmt env sl); env
+      | A.Expr e -> ignore (expr env e); env
+      | A.Vdef (t, initds) ->
+        List.fold_left (local_var t) env initds
+            
+       (* | A.Return of expr
         | If of expr * stmt * stmt
         | For of expr * expr * expr * stmt
         | While of expr * stmt*)
+    in
 
 
     (* Build the code for each statement in the function *)
     (*let builder = expr builder (A.Block fdecl.A.body) in*)
 
-    let global_stmt builder = function
+    let global_stmt env = function
         (* initds: init_dectr list *)
-          A.Vdef(t, initds) -> List.iter (global_var t) initds; builder
-        | st -> stmt builder st
+          A.Vdef(t, initds) -> List.iter (global_var t) initds; env
+        | st -> stmt env st
     in
 
     let build_main_function sl =
@@ -242,8 +255,9 @@ let translate (functions, statements) =
         let ftype_main = L.function_type i32_t [||] in
         let main_func = L.define_function "main" ftype_main the_module in
         let builder = L.builder_at_end context (L.entry_block main_func) in
+        let env = {locals = StringMap.empty; builder = builder} in
 
-        List.iter (fun st -> ignore(global_stmt builder st)) sl;
+        List.fold_left global_stmt env sl;
 
         (* Add a return if the last block falls off the end *)
         add_terminal builder (L.build_ret (L.const_int i32_t 0))
