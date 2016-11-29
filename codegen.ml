@@ -9,7 +9,7 @@ let translate (functions, statements) =
 	let context = L.global_context() in
 	let the_module = L.create_module context "easel"
 	and i32_t = L.i32_type context
-    and i8_t = L.i8_type   context
+        and i8_t = L.i8_type   context
 	and float_t = L.float_type context
 	and i1_t = L.i1_type context
 	and void_t = L.void_type context
@@ -183,6 +183,8 @@ let translate (functions, statements) =
 	  		(* TODO: statements and the builder for the statement's successor *) *)
       | A.Assign(e1, e2) -> let e1' = (match e1 with 
 					  A.Id s -> lookup s
+					| A.EleAt(arr, ind) -> let a = expr builder arr in 
+							       L.build_gep a [| expr builder ind |] a builder
 					)
 			    and e2' = expr builder e2 in
 			  ignore(L.build_store e2' (fst e1') builder); e2'
