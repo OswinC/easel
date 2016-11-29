@@ -135,10 +135,10 @@ let translate (functions, statements) =
                                      and p3' = expr env p3 
 				     and i = L.const_int i32_t 256 in
                                      let ii = L.build_mul i i "tmp" env.builder in
-                                     let p2'' = L.build_mul p2' i "tmp1" env.builder
-                                     and p3'' = L.build_mul p3' ii "tmp2" env.builder in
-                                     let p12 = L.build_add p1' p2'' "tmp3" env.builder in
-                                         L.build_add p12 p3'' "tmp4" env.builder
+                                     let p2'' = L.build_mul p2' i "tmp" env.builder
+                                     and p3'' = L.build_mul p3' ii "tmp" env.builder in
+                                     let p12 = L.build_add p1' p2'' "tmp" env.builder in
+                                         L.build_add p12 p3'' "tmp" env.builder
       | A.Id id -> L.build_load (fst (lookup env id)) id env.builder
       (*
 	  | A.Noexpr -> L.const_int i32_t 0
