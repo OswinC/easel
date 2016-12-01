@@ -74,6 +74,18 @@ let translate (functions, statements) =
       Hashtbl.add globals n (L.define_global n inst the_module, (t, dectr))
     in
 
+    let function_decls = 
+      let function_decl m fdecl =
+	let name = fdecl.A.fname
+	and formal_t = Array.of_list (List.map (fun (t,_) -> lltype_of_typ t) fdecl.A.formals) in
+	let ftype = L.function_type (lltype_of_typ fdecl.A.typ) formal_t in
+	  StringMap.add name (L.define_function name ftype the_module, fdecl) m in
+	List.fold_left function_decl StringMap.empty functions in	
+        
+	(*let build_function_body fdecl = 
+        let (the_function, _) = StringMap.find fdecl.A.fname function_decls in
+        let builder = L.builder_at_end context (L.entry_block the_function) in 
+    *)
     let local_var t env = function A.InitDectr(dectr, init) ->
       (* TODO: if init is not empty, parse it and use it *)
       (*let inst = llval_of_dectr t dectr in*)
@@ -90,33 +102,6 @@ let translate (functions, statements) =
     let extfunc_do_draw = L.declare_function "do_draw" extfunc_do_draw_t the_module in 
     let extfunc_printf_t = L.var_arg_function_type i32_t [| L.pointer_type i8_t |] in
     let extfunc_printf = L.declare_function "printf" extfunc_printf_t the_module in
-
-(*	(* TODO: function definition *)
-        let function_decls =
-          let function_decl m fdecl =
-            let name=fdecl.A.fname
-            and formal_types = 
-              Array.of_list (List.map (fun (t,_) -> lltype_typ t))
-	(* let func_decls = *)*)
-	(* TODO: function body *)
-	(* TODO: declare statements *)
-         
-	(*let builder = L.builder_at_end context (L.entry_block the_function) in*)
-	(* TODO: construct function's local variables *)
-(*	let locals = 
-	   let add_formal m (t, n) p = L.set_value_name n p;
-	 let local = L.build_alloca (lltype_of_typ t) n builder in
-	    ignore (L.build_store p local builder);
-	    StringMap.add n local m in
-
-	 let add_local m (t,n) = 
-	    let local_var = L.build_alloca (lltype_of_typ t) n builder in
-	    StringMap.add n local_var m in
-
-	    let formals = List.fold_left2 add_formal StringMap.empty fdecl.A.formals
-		(Array.to_list (L.params the_function)) in 
-		List.fold_left add_local formals fdecl.A.locals in	
-*)
 
 	(* TODO: lookup local table before go into globals *)
 	let lookup env n = try StringMap.find n env.locals
@@ -182,8 +167,6 @@ let translate (functions, statements) =
 	      | A.UDiv ->
 	      | A.UPow -> *)
 	    ) exp typ "tmp" env.builder
-	  | A.Assign (s,e) -> let exp = expr env e in
-	  					ignore (L.build_store exp (lookup env s) env.builder); exp
 	  (*TODO: EleAt, PropAcc, AnonFunc, finish Call *)
 	  | A.Call (func, act) -> 
 	  	let (fdef, fdecl) = StringMap.find func func_decls in 
@@ -233,16 +216,26 @@ let translate (functions, statements) =
       | A.Expr e -> ignore (expr env e); env
       | A.Vdef (t, initds) ->
         List.fold_left (local_var t) env initds
-            
+      (*| A.While (e, s) -> 
+	let pred = L.append_block context "while" the_function in
+	ignore (L.build_br pred env);
+
+        let body = L.append_block context "while_body" the_function in
+	add_terminal (stmt (L.builder_at_end context body) s)
+	(L.build_br pred);
+
+	let pred_b = L.builder_at_end context pred in
+	let bool_v = expr pred_builder e in
+
+	let merge = L.append_block context "merge" the_function in
+	ignore (L.build_cond_br bool_v body merge pred_b);
+	L.builder_at_end context merge
+        *)    
        (* | A.Return of expr
         | If of expr * stmt * stmt
         | For of expr * expr * expr * stmt
         | While of expr * stmt*)
     in
-
-
-    (* Build the code for each statement in the function *)
-    (*let builder = expr builder (A.Block fdecl.A.body) in*)
 
     let global_stmt env = function
         (* initds: init_dectr list *)
