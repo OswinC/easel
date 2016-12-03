@@ -8,46 +8,57 @@ module StringMap = Map.Make(String)
 
 let globals = Hashtbl.create 8;;
 
+(*
+let canvas_attrs = List.fold_left (fun m (t,n) -> StringMap.add n t m) StringMap.empty 
+        ([(Int, "h"); (Int, "w"); (Int, "size"); (Int, "data");])
+*)
+
 let check (functions, statements) =
-	
-	(* check for duplicates names *)
-	let report_dup exceptf list =
-	    let rec helper = function
-	        n1 :: n2 :: _ when n1 = n2 -> raise (Failure (exceptf n1))
-	      | _ :: t -> helper t
-	      | [] -> ()
-	    in helper (List.sort compare list)
-	in
+  
+  (* check for duplicates names *)
+  let report_dup exceptf list =
+      let rec helper = function
+          n1 :: n2 :: _ when n1 = n2 -> raise (Failure (exceptf n1))
+        | _ :: t -> helper t
+        | [] -> ()
+      in helper (List.sort compare list)
+  in
 
-	(* check for void type *)
-	let check_void exceptf = function
-	      (Void, n) -> raise (Failure (exceptf n))
-	    | _ -> ()
-	in
+  (* check for void type *)
+  let check_void exceptf = function
+        (Void, n) -> raise (Failure (exceptf n))
+      | _ -> ()
+  in
 
-	(* check that rvalue type can be assigned to lvalue type *)
-	let check_assign lvalt rvalt err =
+  (* check that rvalue type can be assigned to lvalue type *)
+  let check_assign lvalt rvalt err =
         (* TODO: pix accepts assignment with both Int and Pix *)
-	    if lvalt == rvalt then lvalt else raise err
-	in
+      if lvalt == rvalt then lvalt
+    else if (lvalt == Pix && rvalt == Int) then lvalt
+      else raise err
+  in
 
-	(* Check and build function table *)
-	let functions =
+
+  if List.mem "print" (List.map (fun fd -> fd.fname) functions)
+  then raise (Failure("function print may not be defined")) else ();
+
+  (* Check and build function table *)
+  let functions =
         { typ = Void; fname = "draw"; formals = [(Pix, DecArr(DecArr(DecId("canvas"), 0), 0)); (Float, DecId("x")); (Float, DecId("y"))];
           body = []; checked = true }::
         { typ = Void; fname = "drawout"; formals = [(Pix, DecArr(DecArr(DecId("canvas"), 0), 0))];
-	      body = []; checked = true }::
-	    { typ = Float; fname = "tan"; formals = [(Float, DecId("x"))];
+        body = []; checked = true }::
+      { typ = Float; fname = "tan"; formals = [(Float, DecId("x"))];
           body = []; checked = true }::
-	    { typ = Float; fname = "sin"; formals = [(Float, DecId("x"))];
+      { typ = Float; fname = "sin"; formals = [(Float, DecId("x"))];
           body = []; checked = true }::
- 	    { typ = Float; fname = "cos"; formals = [(Float, DecId("x"))];
+      { typ = Float; fname = "cos"; formals = [(Float, DecId("x"))];
           body = []; checked = true }::
-	    { typ = Float; fname = "log"; formals= [(Float, DecId("base")); (Float,  DecId("value"))];
+      { typ = Float; fname = "log"; formals= [(Float, DecId("base")); (Float,  DecId("value"))];
           body = []; checked = true }::
-	    { typ = Float; fname = "rand"; formals = [];
+      { typ = Float; fname = "rand"; formals = [];
           body = []; checked = true }:: functions
-	in
+  in
 
     let rec typ_of_bind = function
           (t, DecId(_)) -> t
@@ -58,23 +69,17 @@ let check (functions, statements) =
         string_of_typ fd.typ ^ fd.fname ^
         List.fold_left (fun s fm -> s ^ string_of_typ (typ_of_bind fm)) "" fd.formals
     in
-	(* Check functions *)
-	(* !! I'm assuming here that we're changing the names for overloaded functions
-     * prior to checking for duplicates but maybe my logic is off and there's
-     * supposed to be more code here that will simulatenously concatenate the name
-     * and prototype???
-     * Yes, it should be the function signature that is used to check for duplicate
-     * so overloaded functions won't be complained. *)
-	report_dup (fun n -> "duplicate function " ^ n)
+
+  report_dup (fun n -> "duplicate function " ^ n)
       (List.map (fun fd -> func_sign fd) functions);
 
-	let func_decls = List.fold_left (fun m fd -> StringMap.add (func_sign fd) fd m)
-		StringMap.empty functions
-	in
+  let func_decls = List.fold_left (fun m fd -> StringMap.add (func_sign fd) fd m)
+    StringMap.empty functions
+  in
 
-	let func_decl s = try StringMap.find s func_decls
-	    with Not_found -> raise (Failure ("unrecognized function " ^ s))
-	in
+  let func_decl s = try StringMap.find s func_decls
+      with Not_found -> raise (Failure ("unrecognized function " ^ s))
+  in
 
     (* a main function isn't required for easel *)
     (*let _ = func_decl "main" in*)
@@ -96,21 +101,51 @@ let check (functions, statements) =
         | _ -> raise(Failure ("illegal left value " ^ string_of_expr e))
     in
 
+    let dimension_of_array e =
+      let rec helper dimension = function
+        Id(id) -> dimension
+      | EleAt(arr, length) -> helper (dimension + 1) arr
+    in helper 0 e
+
+    let length_of_array e =
+      let rec helper len = function
+        Id(id) -> len
+      | EleAt(arr, length) -> helper (len + 1) arr
+    in helper 0 e
+
+
     (* Return the type of an expression or throw an exception *)
     let rec expr locals = function
         IntLit _ -> Int
       | FloatLit _ -> Float
       | BoolLit _ -> Bool
       (*TODO: check for exact 3 expressions in el, and all are of Int type*)
-      | PixLit el -> Pix
+      | PixLit el -> match el with [e1; e2; e3] -> 
+        let t1 = expr locals e1 and t2 = expr locals e2 
+            and t3 = expr locals e3 in
+            if (t1 = Int && t2 = Int && t3 = Int) then Pix
+        | _ -> raise(Failure ("illegal pix value " ^ string_of_expr el))
+
       (*TODO: check array type*)
-      | ArrLit el -> Arr(Int)
+      | ArrLit el -> expr locals el
+      (* ArrLit of expr list *)
+      (*let rec checkarrtyp = function
+            match el with (e1::e2::e) -> 
+            let a1 = expr locals e1 and a2 = expr locals e2 in
+              a1 :: a2 : t when a1 = a2 -> checkarrtyp (e2 : e)
+            | _ :: t -> raise(Failure ("illegal array type " ^ string_of_expr el))
+      in *)      
+      (* I am wondering why do we need Arraylit? *)
+      (* Aren't they intlits or floatlits or something like that?*)
+      (* And the checktype function can be reailized in
+        Assign(var,e) function below *)
+
       | Id s -> type_of_identifier locals s
       | Binop(e1, op, e2) as e -> let t1 = expr locals e1 and t2 = expr locals e2 in
         (match op with
             Add | Sub | Mult | Div when t1 = Int && t2 = Int -> Int
           (*TODO: check power operation*)
-          | Pow -> Float
+          | Pow -> if t1 = Int && t2 = Int then Int else if t1 = Float || t2 = Float then Float
           | Equal | Neq when t1 = t2 -> Bool
           | Less | Leq | Greater | Geq when t1 = Int && t2 = Int -> Bool
           | And | Or when t1 = Bool && t2 = Bool -> Bool
@@ -119,23 +154,30 @@ let check (functions, statements) =
             string_of_typ t2 ^ " in " ^ string_of_expr e))
         )
       | Unop(op, e) as ex -> let t = expr locals e in
-	    (match op with
+      (match op with
             Neg when t = Int -> Int
           | Not when t = Bool -> Bool
           (*TODO: check ++ and -- *)
           | Inc | Dec when t = Int -> Int
           (*TODO: check **, //, ^^ *)
-          | UMult | UDiv | UPow when t = Float -> Float
+          | UMult | UDiv | UPow when t = Int -> Int
           | _ -> raise (Failure ("illegal unary operator " ^ string_of_uop op ^
-	  		   string_of_typ t ^ " in " ^ string_of_expr ex))
+           string_of_typ t ^ " in " ^ string_of_expr ex))
         )
       | Noexpr -> Void
-      | Assign(var, e) as ex -> let lt = type_of_identifier locals (id_of_lval var)
-                                (* TODO: check that var's dimension is <= lt *)
-                                and rt = expr locals e in
-        check_assign lt rt (Failure ("illegal assignment " ^ string_of_typ lt ^
-				     " = " ^ string_of_typ rt ^ " in " ^
-				     string_of_expr ex))
+      | Assign(var, e) as ex -> 
+          let lt = type_of_identifier locals (id_of_lval var)
+            and rt = expr locals e in
+            (* TODO: check that var's dimension is <= lt *)
+              match var with 
+                |EleAt(arr, _) -> let d = dimension_of_array var 
+                     and di = dimension_of_array arr in 
+                      if d > di then raise(Failure ("illegal dimension access " ^ string_of_expr el))
+                     else check_assign lt rt (Failure ("illegal assignment " ^ 
+                       string_of_typ lt ^ " = " ^ string_of_typ rt ^ " in " ^ string_of_expr ex))
+                | _ -> check_assign lt rt (Failure ("illegal assignment " ^ 
+                  string_of_typ lt ^ " = " ^ string_of_typ rt ^ " in " ^ string_of_expr ex))
+
       | Call(fdectr, actuals) as call ->
          (* TODO: find out the correct signature of fd according to the calling context
           * and then use it to fetch fd *)
