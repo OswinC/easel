@@ -114,7 +114,7 @@ let translate (functions, statements) =
     let extfunc_do_draw = L.declare_function "do_draw" extfunc_do_draw_t the_module in 
     let extfunc_printf_t = L.var_arg_function_type i32_t [| L.pointer_type i8_t |] in
     let extfunc_printf = L.declare_function "printf" extfunc_printf_t the_module in
-    (* TODO: fix so that can raise doubles by doubles *)
+    (* TODO: fix so that can raise doubles by doubles and ints by ints *)
     let extfunc_powi_t = L.function_type float_t [| float_t; i32_t |] in
     let extfunc_powi = L.declare_function "llvm.powi.f64" extfunc_powi_t the_module in
     let powi_call b e n en = L.build_call extfunc_powi [|b; e|] n en in
@@ -174,20 +174,23 @@ let translate (functions, statements) =
 	  	| A.And -> L.build_and
 	  	| A.Or -> L.build_or
 	  	) exp1 exp2 "tmp" env.builder 
-	  (*| A.Unop(op, e) ->
-	    let (exp, t) = expr env e in
+	  | A.Unop(op, e) ->
+	    let exp = expr env e in
+            let typ = L.string_of_lltype (L.type_of exp) in
+            let fincrement b n en = L.build_fadd b (L.const_float float_t 1.0) n en in
+            let iincrement b n en = L.build_add b (L.const_int i32_t 1) n en in
 	    (match op with
 	    	A.Neg -> L.build_neg
 	      | A.Not -> L.build_not
-	      | A.Inc -> if t = A.Int then (L.build_add 1) (* not positive this is correct *)
-	      			 else (L.build_fadd 1)
+(*	      | A.Inc -> if typ = "double" then fincrement 
+	      			 else iincrement 
 	      | A.Dec -> if t = A.Int then (L.build_sub 1)
-	      			 else (L.build_fsub 1)
+	      			 else (L.build_fsub 1)*)
 	      (* TODO: UMult, UDive, UPow
 	      | A.UMult ->
 	      | A.UDiv ->
 	      | A.UPow -> *)
-	    ) exp typ "tmp" env.builder*)
+	    ) exp "tmp" env.builder
 	  (*TODO: EleAt, PropAcc, AnonFunc, finish Call *)
 	 (* | A.Call (func, act) -> 
 	  	let (fdef, fdecl) = StringMap.find func func_decls in 
