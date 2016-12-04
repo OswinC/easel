@@ -14,7 +14,7 @@ let translate (functions, statements) =
 	let the_module = L.create_module context "easel"
 	and i32_t = L.i32_type context
         and i8_t = L.i8_type   context
-	and float_t = L.float_type context
+	and float_t = L.double_type context
 	and i1_t = L.i1_type context
 	and void_t = L.void_type context
 	and pix_t = L.i32_type context
@@ -51,7 +51,7 @@ let translate (functions, statements) =
                           A.Int -> L.const_int (lltype_of_typ t) 0 
                         | A.Pix -> L.const_int (lltype_of_typ t) 0 
                         | A.Bool -> L.const_int (lltype_of_typ t) 0 
-                        | A.Float -> L.const_float (lltype_of_typ t) 2.4 
+                        | A.Float -> L.const_float (lltype_of_typ t) 0.0 
                        )
 
     in
@@ -131,18 +131,21 @@ let translate (functions, statements) =
                                      let p12 = L.build_add p1' p2'' "tmp" env.builder in
                                          L.build_add p12 p3'' "tmp" env.builder
       | A.Id id -> L.build_load (fst (lookup env id)) id env.builder
-      (*
+     
 	  | A.Noexpr -> L.const_int i32_t 0
 	  | A.Binop (e1, op, e2) -> 
 	  	(* TODO: define typ1 somewhere above *)
-	  	let (exp1, typ1) = expr env e1
-	  	and (exp2, _) = expr env e2 in
-	  	(match op with 
-	  	  A.Add -> if typ1 = A.Int then L.build_add else L.build_fadd
-	  	| A.Sub -> if typ1 = A.Int then L.build_sub else L.build_fsub
-	  	| A.Mult -> if typ1 = A.Int then L.build_mul else L.build_fmul
-	  	| A.Div -> if typ1 = A.Int then L.build_sdiv else L.build_fdiv
-	  	| A.Mod -> L.build_urem 
+
+                let exp1 = expr env e1
+                and exp2 = expr env e2 in
+                let typ1 = L.string_of_lltype (L.type_of exp1) 
+                and typ2 = L.string_of_lltype (L.type_of exp2) in 
+                (match op with
+	  	  A.Add -> if typ1 = "float" then L.build_fadd else L.build_add
+	  	| A.Sub -> if typ1 = "float" then L.build_fsub else L.build_sub
+	  	| A.Mult -> if typ1 = "float" then L.build_fmul else L.build_mul
+	  	| A.Div -> if typ1 = "float" then L.build_fdiv else L.build_sdiv
+(*	  	| A.Mod -> L.build_urem 
 	  	| A.Pow -> L.powi
 	  	| A.Equal -> if typ1 = A.Int then (L.build_icmp L.Icmp.Eq)
 	  				 else (L.build_fcmp L.Fcmp.Eq)
@@ -157,9 +160,9 @@ let translate (functions, statements) =
 	  	| A.Geq -> if typ1 = A.Int then (L.build_icmp L.Icmp.Sge)
 	  			   else (L.build_fcmp L.Fcmp.Oge)
 	  	| A.And -> L.build_and
-	  	| A.Or -> L.build_or
-	  	) exp1 typ exp2 "tmp" env.builder (* TODO: is this line the correct syntax? *)
-	  | A.Unop(op, e) ->
+	  	| A.Or -> L.build_or*)
+	  	) exp1 exp2 "tmp" env.builder (* TODO: is this line the correct syntax? *)
+(*	  | A.Unop(op, e) ->
 	    let (exp, t) = expr env e in
 	    (match op with
 	    	A.Neg -> L.build_neg
@@ -208,7 +211,7 @@ let translate (functions, statements) =
         let int_format_str = L.build_global_stringptr "%d\n" "fmt" env.builder in
         L.build_call extfunc_printf [| int_format_str ; (expr env e) |] "printf" env.builder
       | A.Call (Id("printfl"), [e]) -> 
-        let float_format_str = L.build_global_stringptr "%f\n" "fmt" env.builder in
+        let float_format_str = L.build_global_stringptr "%f\n" "fffmt" env.builder in
         L.build_call extfunc_printf [| float_format_str ; (expr env e) |] "printf" env.builder
     in
 
