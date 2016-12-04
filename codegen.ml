@@ -7,6 +7,7 @@ module StringMap = Map.Make(String)
 type easel_env = {
     locals: (L.llvalue * (A.typ * A.dectr)) StringMap.t;
     builder: L.llbuilder; 
+    the_func: L.llvalue; 
 }
 
 let translate (functions, statements) = 
@@ -92,7 +93,7 @@ let translate (functions, statements) =
       let n = id_of_dectr dectr in
       let loc = L.build_alloca (lltype_of_typ t) n env.builder in
       let locals = StringMap.add n (loc, (t, dectr)) env.locals in
-      { locals = locals; builder = env.builder}
+      { locals = locals; builder = env.builder; the_func = env.the_func}
     in
 
 	(* built-in functions *)
@@ -125,8 +126,8 @@ let translate (functions, statements) =
                                      let p12 = L.build_add p1' p2'' "tmp" env.builder in
                                          L.build_add p12 p3'' "tmp" env.builder
       | A.Id id -> L.build_load (fst (lookup env id)) id env.builder
-      (*
 	  | A.Noexpr -> L.const_int i32_t 0
+      (*
 	  | A.Binop (e1, op, e2) -> 
 	  	(* TODO: define typ1 somewhere above *)
 	  	let (exp1, typ1) = expr env e1
@@ -216,21 +217,29 @@ let translate (functions, statements) =
       | A.Expr e -> ignore (expr env e); env
       | A.Vdef (t, initds) ->
         List.fold_left (local_var t) env initds
-      (*| A.While (e, s) -> 
-	let pred = L.append_block context "while" the_function in
-	ignore (L.build_br pred env);
+      | A.While (pred, body) -> 
+        let pred_bb = L.append_block context "while" env.the_func in
+        ignore (L.build_br pred_bb env.builder);
 
-        let body = L.append_block context "while_body" the_function in
-	add_terminal (stmt (L.builder_at_end context body) s)
-	(L.build_br pred);
+        let body_bb = L.append_block context "while_body" env.the_func in
+        (*todo!*)
+        let body_env = {
+            locals = env.locals;
+            builder = (L.builder_at_end context body_bb);
+            the_func = env.the_func } in
+        add_terminal (stmt body_env body).builder
+        (L.build_br pred_bb);
 
-	let pred_b = L.builder_at_end context pred in
-	let bool_v = expr pred_builder e in
+        let pred_env = {
+            locals = env.locals;
+            builder = (L.builder_at_end context pred_bb);
+            the_func = env.the_func } in
+        let pred_v = expr pred_env pred in
 
-	let merge = L.append_block context "merge" the_function in
-	ignore (L.build_cond_br bool_v body merge pred_b);
-	L.builder_at_end context merge
-        *)    
+        let merge_bb = L.append_block context "merge" env.the_func in 
+        let cmp_v = L.build_icmp L.Icmp.Ne pred_v (L.const_int i32_t 0) "cmp" pred_env.builder in
+        ignore (L.build_cond_br cmp_v body_bb merge_bb pred_env.builder);
+        { locals = env.locals; builder = L.builder_at_end context merge_bb; the_func = env.the_func }
        (* | A.Return of expr
         | If of expr * stmt * stmt
         | For of expr * expr * expr * stmt
@@ -248,7 +257,7 @@ let translate (functions, statements) =
         let ftype_main = L.function_type i32_t [||] in
         let main_func = L.define_function "main" ftype_main the_module in
         let builder = L.builder_at_end context (L.entry_block main_func) in
-        let env = {locals = StringMap.empty; builder = builder} in
+        let env = {locals = StringMap.empty; builder = builder; the_func = main_func} in 
 
         List.fold_left global_stmt env sl;
 
