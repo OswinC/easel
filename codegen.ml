@@ -48,7 +48,13 @@ let translate (functions, statements) =
         (* 3-D: L.const_array (arr_t (arr_t 5) 10) [|... |]*)
         (* Scalar: L.const_int pix_t 0*)
         A.DecArr(d, l) -> L.const_array (lltype_of_dectr t d) (Array.make l (llval_of_dectr t d))
-      | A.DecId(id) -> L.const_int (lltype_of_typ t) 0 
+      | A.DecId(id) -> (match t with 
+                          A.Int -> L.const_int (lltype_of_typ t) 0 
+                        | A.Pix -> L.const_int (lltype_of_typ t) 0 
+                        | A.Bool -> L.const_int (lltype_of_typ t) 0 
+                        | A.Float -> L.const_float (lltype_of_typ t) 2.4 
+                       )
+
     in
 
     let rec id_of_dectr = function
@@ -215,6 +221,9 @@ let translate (functions, statements) =
       | A.Call (Id("print"), [e]) -> 
         let int_format_str = L.build_global_stringptr "%d\n" "fmt" env.builder in
         L.build_call extfunc_printf [| int_format_str ; (expr env e) |] "printf" env.builder
+      | A.Call (Id("printfl"), [e]) -> 
+        let float_format_str = L.build_global_stringptr "%f\n" "fmt" env.builder in
+        L.build_call extfunc_printf [| float_format_str ; (expr env e) |] "printf" env.builder
     in
 
     (* Invoke "f builder" if the current block doesn't already
