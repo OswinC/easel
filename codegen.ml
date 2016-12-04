@@ -81,12 +81,11 @@ let translate (functions, statements) =
 	let ftype = L.function_type (lltype_of_typ fdecl.A.typ) formal_t in
 	  StringMap.add name (L.define_function name ftype the_module, fdecl) m in
 	List.fold_left function_decl StringMap.empty functions in	
-	
-	(*let build_function_body fdecl =  
-          let (the_function, _) = StringMap.find fdecl.A.fname function_decls in
-          let builder = L.builder_at_end context (L.entry_block the_function) in
-	  let env = {locals = StringMap.empty; builder = builder} in  
-*)
+        
+	(*let build_function_body fdecl = 
+        let (the_function, _) = StringMap.find fdecl.A.fname function_decls in
+        let builder = L.builder_at_end context (L.entry_block the_function) in 
+    *)
     let local_var t env = function A.InitDectr(dectr, init) ->
       (* TODO: if init is not empty, parse it and use it *)
       (*let inst = llval_of_dectr t dectr in*)
@@ -217,22 +216,21 @@ let translate (functions, statements) =
       | A.Expr e -> ignore (expr env e); env
       | A.Vdef (t, initds) ->
         List.fold_left (local_var t) env initds
-      (*| A.While (e, s) ->
-	let the_function = StringMap.find (List.hd functions).A.fname function_decls in 
-	let pred = L.append_block context "while" (fst the_function) in
-	ignore (L.build_br pred env.builder);
+      (*| A.While (e, s) -> 
+	let pred = L.append_block context "while" the_function in
+	ignore (L.build_br pred env);
 
-        let body = L.append_block context "while_body" (fst the_function) in
+        let body = L.append_block context "while_body" the_function in
 	add_terminal (stmt (L.builder_at_end context body) s)
 	(L.build_br pred);
 
 	let pred_b = L.builder_at_end context pred in
-	let bool_v = expr pred_b e in
+	let bool_v = expr pred_builder e in
 
-	let merge = L.append_block context "merge" (fst the_function) in
+	let merge = L.append_block context "merge" the_function in
 	ignore (L.build_cond_br bool_v body merge pred_b);
 	L.builder_at_end context merge
-        *) 
+        *)    
        (* | A.Return of expr
         | If of expr * stmt * stmt
         | For of expr * expr * expr * stmt
