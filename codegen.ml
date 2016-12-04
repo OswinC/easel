@@ -66,6 +66,11 @@ let translate (functions, statements) =
       | A.DecId(id) -> raise (Failure (id ^ " is not an array"))
     in 
 
+    let rec get_arr_id = function
+        A.Id(id) -> id
+      | A.EleAt(id,_) -> get_arr_id id
+    in
+
     let globals = Hashtbl.create 8 in
 
     let global_var t = function A.InitDectr(dectr, init) ->
@@ -178,12 +183,20 @@ let translate (functions, statements) =
 	  		(* TODO: add terminal if there's none *)
 	  		(* TODO: statements and the builder for the statement's successor *) *)
       | A.Assign(e1, e2) -> let e1' = (match e1 with 
-					  A.Id s -> lookup env s
-					(*| A.EleAt(arr, ind) -> let a = expr env arr in 
-							       L.build_gep a [| L.const_int i32_t 0; expr env ind |] a env.builder*)
+					  A.Id s -> fst (lookup env s)
+					| A.EleAt(arr, ind) -> (match arr with 
+					    A.Id s -> L.build_gep (fst (lookup env s)) [|L.const_int i32_t 0; expr env ind|] s env.builder
+					  | A.EleAt(s, l) -> let s' = get_arr_id s in 
+					    L.build_gep (fst (lookup env s')) [|L.const_int i32_t 0; expr env ind; expr env l|] s' env.builder
+					  )
 					)
 			    and e2' = expr env e2 in
-			  ignore(L.build_store e2' (fst e1') env.builder); e2'
+			  ignore(L.build_store e2' e1' env.builder); e2'
+      | A.EleAt(arr, ind) -> (match arr with
+          A.Id s -> L.build_load (L.build_gep (fst (lookup env s )) [|L.const_int i32_t 0; expr env ind|] s env.builder) s env.builder
+        | A.EleAt(s, l) -> let s' = get_arr_id s in
+          L.build_load (L.build_gep (fst (lookup env s')) [|L.const_int i32_t 0; expr env ind; expr env l|] s' env.builder) s' env.builder
+        )
       (* Call external functions *)
       (* int draw() *)
       | A.Call (Id("draw"), []) ->
