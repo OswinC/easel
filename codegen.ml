@@ -259,10 +259,10 @@ let translate (functions, statements) =
         let builder = L.builder_at_end context (L.entry_block main_func) in
         let env = {locals = StringMap.empty; builder = builder; the_func = main_func} in 
 
-        List.fold_left global_stmt env sl;
+        let end_env = List.fold_left global_stmt env sl in
 
         (* Add a return if the last block falls off the end *)
-        add_terminal builder (L.build_ret (L.const_int i32_t 0))
+        add_terminal end_env.builder (L.build_ret (L.const_int i32_t 0))
     in
     build_main_function (List.rev statements);
     (*List.iter build_function_body functions;*)
