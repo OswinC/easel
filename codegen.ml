@@ -174,7 +174,7 @@ let translate (functions, statements) =
 	  	| A.And -> L.build_and
 	  	| A.Or -> L.build_or
 	  	) exp1 exp2 "tmp" env.builder 
-	  | A.Unop(op, e) ->
+	  (*| A.Unop(op, e) ->
 	    let (exp, t) = expr env e in
 	    (match op with
 	    	A.Neg -> L.build_neg
@@ -187,9 +187,9 @@ let translate (functions, statements) =
 	      | A.UMult ->
 	      | A.UDiv ->
 	      | A.UPow -> *)
-	    ) exp typ "tmp" env.builder
+	    ) exp typ "tmp" env.builder*)
 	  (*TODO: EleAt, PropAcc, AnonFunc, finish Call *)
-	  | A.Call (func, act) -> 
+	 (* | A.Call (func, act) -> 
 	  	let (fdef, fdecl) = StringMap.find func func_decls in 
 	  	let actuals = List.rev (List.map (expr env) (List.rev act)) in
 	  	let result = (match fdecl.A.typ with A.Void -> ""
