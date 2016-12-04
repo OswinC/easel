@@ -112,12 +112,14 @@ Arr(Arr(Pix)
         Id(id) -> dimension
       | EleAt(arr, length) -> helper (dimension + 1) arr
     in helper 0 e
+	in
 
     let length_of_array e =
       let rec helper len = function
         Id(id) -> len
       | EleAt(arr, length) -> helper (len + 1) arr
     in helper 0 e
+	in
 
     (* Return the type of an expression or throw an exception *)
     let rec expr locals = function
@@ -125,20 +127,21 @@ Arr(Arr(Pix)
       | FloatLit _ -> Float
       | BoolLit _ -> Bool
       (*TODO: check for exact 3 expressions in el, and all are of Int type*)
-      | PixLit el -> match el with [e1; e2; e3] -> 
-        let t1 = expr locals e1 and t2 = expr locals e2 
-            and t3 = expr locals e3 in
-            if (t1 = Int && t2 = Int && t3 = Int) then Pix
-        | _ -> raise(Failure ("illegal pix value " ^ string_of_expr el))
+      | PixLit [e1; e2; e3] as el -> (*match el with [e1; e2; e3] -> *)
+        let t1 = expr locals e1 and t2 = expr locals e2 and t3 = expr locals e3 in
+            if (t1 == Int && t2 == Int && t3 == Int) then Pix 
+	    else raise(Failure ("illegal pix value " ^ string_of_expr el));
+            ;
 
       (* TODO: check array type 
        * int a[4]; a = [1,2,3,4]; *)
       | ArrLit el -> 
             let rec checkarrtyp = function
-              e -> expr locals e
-            | e1 :: e2 -> if expr locals e1 == expr local e2 then expr locals e1
+             e -> Arr(expr locals e)
+            | e1 :: e2 -> let t1 = expr locals e1 and t2 = expr locals e2 in 
+		if t1 == t2 then Arr(expr locals e1) 
+			else raise(Failure ("illegal array type " ^ string_of_expr el))
             | e1 :: e2 :: e -> if expr locals e1 == expr local e2 then checkarrtyp e2 :: e 
-            | -> raise(Failure ("illegal array type " ^ string_of_expr el))
               in checkarrtyp el
 
       (* ArrLit of expr list *)
@@ -168,7 +171,7 @@ Arr(Arr(Pix)
         (match op with
             Add | Sub | Mult | Div when t1 = Int && t2 = Int -> Int
           (*TODO: check power operation*)
-          | Pow -> if t1 = Int && t2 = Int then Int else if t1 = Float || t2 = Float then Float
+          | Pow -> if t1 == Int && t2 == Int then Int else if t1 == Float || t2 == Float then Float
           | Equal | Neq when t1 = t2 -> Bool
           | Less | Leq | Greater | Geq when t1 = Int && t2 = Int -> Bool
           | And | Or when t1 = Bool && t2 = Bool -> Bool
@@ -222,7 +225,7 @@ Arr(Arr(Pix)
               e -> expr locals e
             | e1 :: e2 -> if expr locals e1 == expr local e2 then expr locals e1
             | e1 :: e2 :: e -> if expr locals e1 == expr local e2 then checkarrtyp e2 :: e 
-            | -> raise(Failure ("illegal array type " ^ string_of_expr el))
+            | _-> raise(Failure ("illegal array type " ^ string_of_expr el))
               in checkarrtyp el
       (*TODO: check property access*)
       | PropAcc(e, prp) -> Int
