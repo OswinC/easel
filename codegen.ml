@@ -188,7 +188,7 @@ let translate (functions, statements) =
 							       L.build_gep a [| L.const_int i32_t 0; expr env ind |] a env.builder*)
 					)
 			    and e2' = expr env e2 in
-			  ignore(L.build_store e2' (fst e1') env.builder); e2';
+			  ignore(L.build_store e2' (fst e1') env.builder); e2'
       (* Call external functions *)
       (* int draw() *)
       | A.Call (Id("draw"), []) ->
