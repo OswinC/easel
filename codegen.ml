@@ -114,6 +114,11 @@ let translate (functions, statements) =
     let extfunc_do_draw = L.declare_function "do_draw" extfunc_do_draw_t the_module in 
     let extfunc_printf_t = L.var_arg_function_type i32_t [| L.pointer_type i8_t |] in
     let extfunc_printf = L.declare_function "printf" extfunc_printf_t the_module in
+    (* TODO: fix so that can raise doubles by doubles *)
+    let extfunc_powi_t = L.function_type float_t [| float_t; i32_t |] in
+    let extfunc_powi = L.declare_function "llvm.powi.f64" extfunc_powi_t the_module in
+    let powi_call b e n en = L.build_call extfunc_powi [|b; e|] n en in
+
 
 	(* TODO: lookup local table before go into globals *)
 	let lookup env n = try StringMap.find n env.locals
@@ -148,28 +153,28 @@ let translate (functions, statements) =
                 let typ1 = L.string_of_lltype (L.type_of exp1) 
                 and typ2 = L.string_of_lltype (L.type_of exp2) in 
                 (match op with
-	  	  A.Add -> if typ1 = "float" then L.build_fadd else L.build_add
-	  	| A.Sub -> if typ1 = "float" then L.build_fsub else L.build_sub
-	  	| A.Mult -> if typ1 = "float" then L.build_fmul else L.build_mul
-	  	| A.Div -> if typ1 = "float" then L.build_fdiv else L.build_sdiv
-(*	  	| A.Mod -> L.build_urem 
-	  	| A.Pow -> L.powi
-	  	| A.Equal -> if typ1 = A.Int then (L.build_icmp L.Icmp.Eq)
-	  				 else (L.build_fcmp L.Fcmp.Eq)
-	  	| A.Neq -> if typ1 = A.Int then (L.build_icmp L.Icmp.Ne)
-	  			   else (L.build_fcmp L.Fcmp.One)
-	  	| A.Less -> if typ1 = A.Int then (L.build_icmp L.Icmp.Slt)
-	  				else (L.build_fcmp L.Fcmp.Olt)
-	  	| A.Leq -> if typ1 = A.Int then (L.build_icmp L.Icmp.Sle)
-	  			   else (L.build_fcmp L.Fcmp.Ole)
-	  	| A.Greater -> if typ1 = A.Int then (L.build_icmp L.Icmp.Sgt)
-	  				   else (L.build_fcmp L.Fcmp.Ogt)
-	  	| A.Geq -> if typ1 = A.Int then (L.build_icmp L.Icmp.Sge)
-	  			   else (L.build_fcmp L.Fcmp.Oge)
+	  	  A.Add -> if typ1 = "double" then L.build_fadd else L.build_add
+	  	| A.Sub -> if typ1 = "double" then L.build_fsub else L.build_sub
+	  	| A.Mult -> if typ1 = "double" then L.build_fmul else L.build_mul
+	  	| A.Div -> if typ1 = "double" then L.build_fdiv else L.build_sdiv
+	  	| A.Mod -> L.build_urem 
+	  	| A.Pow -> powi_call
+	  	| A.Equal -> if typ1 = "double" then (L.build_fcmp L.Fcmp.Oeq)
+	  				 else (L.build_icmp L.Icmp.Eq)
+	  	| A.Neq -> if typ1 = "double" then (L.build_fcmp L.Fcmp.One)
+                                         else (L.build_icmp L.Icmp.Ne)
+	  	| A.Less -> if typ1 = "double" then (L.build_fcmp L.Fcmp.Olt)
+                                         else (L.build_icmp L.Icmp.Slt)
+	  	| A.Leq -> if typ1 = "double" then (L.build_fcmp L.Fcmp.Ole)
+             	  			 else (L.build_icmp L.Icmp.Sle)
+	  	| A.Greater -> if typ1 = "double" then (L.build_fcmp L.Fcmp.Ogt)
+	  				   else (L.build_icmp L.Icmp.Sgt)
+	  	| A.Geq -> if typ1 = "double" then (L.build_fcmp L.Fcmp.Oge) 
+	  			   else (L.build_icmp L.Icmp.Sge)
 	  	| A.And -> L.build_and
-	  	| A.Or -> L.build_or*)
-	  	) exp1 exp2 "tmp" env.builder (* TODO: is this line the correct syntax? *)
-(*	  | A.Unop(op, e) ->
+	  	| A.Or -> L.build_or
+	  	) exp1 exp2 "tmp" env.builder 
+	  | A.Unop(op, e) ->
 	    let (exp, t) = expr env e in
 	    (match op with
 	    	A.Neg -> L.build_neg
