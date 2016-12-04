@@ -34,7 +34,7 @@ let check (functions, statements) =
   let check_assign lvalt rvalt err =
         (* TODO: pix accepts assignment with both Int and Pix *)
       if lvalt == rvalt then lvalt
-    else if (lvalt == Pix && rvalt == Int) then lvalt
+      else if (lvalt == Pix && rvalt == Int) then lvalt
       else raise err
   in
 
@@ -60,6 +60,12 @@ let check (functions, statements) =
           body = []; checked = true }:: functions
   in
 
+(*
+(Pix, DecArr(DecArr(DecId("canvas"), 0), 0))
+typ_of_bind (Arr(Pix), DecArr(DecId("canvas"), 0))
+typ_of_bind (Arr(Arr(Pix)), DecId("canvas"))
+Arr(Arr(Pix)
+*)
     let rec typ_of_bind = function
           (t, DecId(_)) -> t
         | (t, DecArr(d, _)) -> typ_of_bind (Arr(t), d)
@@ -113,7 +119,6 @@ let check (functions, statements) =
       | EleAt(arr, length) -> helper (len + 1) arr
     in helper 0 e
 
-
     (* Return the type of an expression or throw an exception *)
     let rec expr locals = function
         IntLit _ -> Int
@@ -126,17 +131,35 @@ let check (functions, statements) =
             if (t1 = Int && t2 = Int && t3 = Int) then Pix
         | _ -> raise(Failure ("illegal pix value " ^ string_of_expr el))
 
-      (*TODO: check array type*)
-      | ArrLit el -> expr locals el
+      (* TODO: check array type 
+       * int a[4]; a = [1,2,3,4]; *)
+      | ArrLit el -> 
+            let rec checkarrtyp = function
+              e -> expr locals e
+            | e1 :: e2 -> if expr locals e1 == expr local e2 then expr locals e1
+            | e1 :: e2 :: e -> if expr locals e1 == expr local e2 then checkarrtyp e2 :: e 
+            | -> raise(Failure ("illegal array type " ^ string_of_expr el))
+              in checkarrtyp el
+
       (* ArrLit of expr list *)
-      (*let rec checkarrtyp = function
-            match el with (e1::e2::e) -> 
+    (*let type_of_ArrElement e =
+      let rec helper len = function
+        Id(id) -> len
+      | EleAt(arr, length) -> helper (len + 1) arr
+    in helper 0 e
+
+      let rec checkarrtyp = function
+            match el with (e1::e) -> 
+            let a1 = expr locals e1 in
+              a1 :: a2 : t when a1 = a2 -> checkarrtyp (e2 : e)
+            | _ :: t -> raise(Failure ("illegal array type " ^ string_of_expr el))
+      in  
+      let rec checkarrtyp = function
+            match el with (e1::e) -> 
             let a1 = expr locals e1 and a2 = expr locals e2 in
               a1 :: a2 : t when a1 = a2 -> checkarrtyp (e2 : e)
             | _ :: t -> raise(Failure ("illegal array type " ^ string_of_expr el))
-      in *)      
-      (* I am wondering why do we need Arraylit? *)
-      (* Aren't they intlits or floatlits or something like that?*)
+      in  *)
       (* And the checktype function can be reailized in
         Assign(var,e) function below *)
 
@@ -193,8 +216,14 @@ let check (functions, statements) =
              fd.formals actuals;
            if not fd.checked then check_func fd else ();
            fd.typ
-      (*TODO: check array access*)
-      | EleAt(arr, idx) -> Int
+      (*TODO: check array access*) 
+      | EleAt(arr, idx) -> 
+            let rec checkarrtyp = function
+              e -> expr locals e
+            | e1 :: e2 -> if expr locals e1 == expr local e2 then expr locals e1
+            | e1 :: e2 :: e -> if expr locals e1 == expr local e2 then checkarrtyp e2 :: e 
+            | -> raise(Failure ("illegal array type " ^ string_of_expr el))
+              in checkarrtyp el
       (*TODO: check property access*)
       | PropAcc(e, prp) -> Int
       (*TODO: check anonymous function*)
