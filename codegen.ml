@@ -256,6 +256,22 @@ let translate (functions, statements) =
       | A.Expr e -> ignore (expr env e); env
       | A.Vdef (t, initds) ->
         List.fold_left (local_var t) env initds
+      | A.If (pred, then_stmt, else_stmt) ->
+          let bool_val = expr env pred in 
+	  let merge_bb = L.append_block context "merge" env.the_func in
+
+	  let then_bb = L.append_block context "then" env.the_func in
+	  let then_env = { env with builder = (L.builder_at_end context then_bb) } in
+          add_terminal (stmt then_env then_stmt).builder
+          (L.build_br merge_bb);
+
+          let else_bb = L.append_block context "else" env.the_func in
+	  let else_env = { env with builder = (L.builder_at_end context else_bb) } in
+	  add_terminal (stmt else_env else_stmt).builder
+	  (L.build_br merge_bb);
+
+	  ignore (L.build_cond_br bool_val then_bb else_bb env.builder);
+	  { env with builder = (L.builder_at_end context merge_bb) }
       | A.While (pred, body) -> 
         let pred_bb = L.append_block context "while" env.the_func in
         ignore (L.build_br pred_bb env.builder);
