@@ -129,7 +129,7 @@ Arr(Arr(Pix)
       (*TODO: check for exact 3 expressions in el, and all are of Int type*)
       | PixLit [e1; e2; e3] as el -> (*match el with [e1; e2; e3] -> *)
         let t1 = expr locals e1 and t2 = expr locals e2 and t3 = expr locals e3 in
-            if (t1 == Int && t2 == Int && t3 == Int) then Pix 
+            if (t1 = Int && t2 = Int && t3 = Int) then Pix 
 	    else raise(Failure ("illegal pix value " ^ string_of_expr el));
             ;
 
@@ -137,14 +137,22 @@ Arr(Arr(Pix)
        * int a[4]; a = [1,2,3,4]; *)
       | ArrLit el -> 
             let rec checkarrtyp = function
-             e -> Arr(expr locals e)
+            [e] -> Arr(expr locals e)
+            | e1 :: e2 :: _ -> let t1 = expr locals e1 and t2 = expr locals e2 in 
+		if t1 = t2 then Arr(expr locals e1) 
+			else raise(Failure ("illegal array type " ^ string_of_expr e1))
+            | e1 :: e2 :: e -> if (expr locals e1 = expr locals e2) then checkarrtyp e2::e
+              in checkarrtyp el
+
+      (* ArrLit of expr list *)
+      (*| ArrLit el -> 
+            let rec checkarrtyp = function
+             [] -> Arr(Int)
             | e1 :: e2 -> let t1 = expr locals e1 and t2 = expr locals e2 in 
 		if t1 == t2 then Arr(expr locals e1) 
 			else raise(Failure ("illegal array type " ^ string_of_expr el))
             | e1 :: e2 :: e -> if expr locals e1 == expr local e2 then checkarrtyp e2 :: e 
-              in checkarrtyp el
-
-      (* ArrLit of expr list *)
+              in checkarrtyp el*)
     (*let type_of_ArrElement e =
       let rec helper len = function
         Id(id) -> len
@@ -171,7 +179,7 @@ Arr(Arr(Pix)
         (match op with
             Add | Sub | Mult | Div when t1 = Int && t2 = Int -> Int
           (*TODO: check power operation*)
-          | Pow -> if t1 == Int && t2 == Int then Int else if t1 == Float || t2 == Float then Float
+          | Pow when (t1 = Int && t2 = Int) || (t1 = Int && t2 = Float) -> Float
           | Equal | Neq when t1 = t2 -> Bool
           | Less | Leq | Greater | Geq when t1 = Int && t2 = Int -> Bool
           | And | Or when t1 = Bool && t2 = Bool -> Bool
