@@ -8,6 +8,7 @@ type easel_env = {
     locals: (L.llvalue * (A.typ * A.dectr)) StringMap.t;
     builder: L.llbuilder; 
     the_func: L.llvalue; 
+    ret_typ: A.typ;
 }
 
 let translate (functions, statements) = 
@@ -94,17 +95,13 @@ let translate (functions, statements) =
 	  StringMap.add name (L.define_function name ftype the_module, fdecl) m in
 	List.fold_left function_decl StringMap.empty functions in	
         
-	(*let build_function_body fdecl = 
-        let (the_function, _) = StringMap.find fdecl.A.fname function_decls in
-        let builder = L.builder_at_end context (L.entry_block the_function) in 
-    *)
     let local_var t env = function A.InitDectr(dectr, init) ->
       (* TODO: if init is not empty, parse it and use it *)
       (*let inst = llval_of_dectr t dectr in*)
       let n = id_of_dectr dectr in
       let loc = L.build_alloca (lltype_of_typ t) n env.builder in
       let locals = StringMap.add n (loc, (t, dectr)) env.locals in
-      { locals = locals; builder = env.builder; the_func = env.the_func}
+      { env with locals = locals }
     in
 
 	(* built-in functions *)
@@ -194,14 +191,6 @@ let translate (functions, statements) =
 	      | A.UPow -> *)
 	    ) 
 	  (*TODO: EleAt, PropAcc, AnonFunc, finish Call *)
-	 (* | A.Call (func, act) -> 
-	  	let (fdef, fdecl) = StringMap.find func func_decls in 
-	  	let actuals = List.rev (List.map (expr env) (List.rev act)) in
-	  	let result = (match fdecl.A.typ with A.Void -> ""
-	  									   | _ -> func ^ "_result") in
-	  		L.build_call fdef (Array.of_list actuals) result env.builder in
-	  		(* TODO: add terminal if there's none *)
-	  		(* TODO: statements and the builder for the statement's successor *) *)
       | A.Assign(e1, e2) -> let e1' = (match e1 with 
 					  A.Id s -> fst (lookup env s)
 					| A.EleAt(arr, ind) -> (match arr with 
@@ -238,6 +227,13 @@ let translate (functions, statements) =
       | A.Call (Id("printfl"), [e]) -> 
         let float_format_str = L.build_global_stringptr "%f\n" "fffmt" env.builder in
         L.build_call extfunc_printf [| float_format_str ; (expr env e) |] "printf" env.builder
+        (* TODO: Overloading and passing arrays for function calls *)
+      | A.Call (Id(func), act) -> 
+          let (fdef, fdecl) = StringMap.find func function_decls in 
+          let actuals = List.rev (List.map (expr env) (List.rev act)) in
+          let result = (match fdecl.A.typ with A.Void -> ""
+                                             | _ -> func ^ "_result") in
+              L.build_call fdef (Array.of_list actuals) result env.builder
     in
 
     (* Invoke "f builder" if the current block doesn't already
@@ -259,17 +255,11 @@ let translate (functions, statements) =
 
         let body_bb = L.append_block context "while_body" env.the_func in
         (*todo!*)
-        let body_env = {
-            locals = env.locals;
-            builder = (L.builder_at_end context body_bb);
-            the_func = env.the_func } in
+        let body_env = { env with builder = (L.builder_at_end context body_bb) } in
         add_terminal (stmt body_env body).builder
         (L.build_br pred_bb);
 
-        let pred_env = {
-            locals = env.locals;
-            builder = (L.builder_at_end context pred_bb);
-            the_func = env.the_func } in
+        let pred_env = { env with builder = (L.builder_at_end context pred_bb) } in
         let pred_v = expr pred_env pred in
         let pred_t = L.string_of_lltype (L.type_of pred_v) in
 
@@ -278,14 +268,15 @@ let translate (functions, statements) =
             if pred_t = "i32" then L.build_icmp L.Icmp.Ne pred_v (L.const_int i32_t 0) "cmp" pred_env.builder
             else pred_v in
         ignore (L.build_cond_br cmp_v body_bb merge_bb pred_env.builder);
-        { locals = env.locals; builder = L.builder_at_end context merge_bb; the_func = env.the_func }
+        { env with builder = (L.builder_at_end context merge_bb) }
 
       | A.For (e1, e2, e3, body) -> stmt env
-	    ( A.Block [A.Expr e1 ; A.While (e2, A.Block [body ; A.Expr e3]) ] )
-       (* | A.Return of expr
-        | If of expr * stmt * stmt
-        | For of expr * expr * expr * stmt
-        | While of expr * stmt*)
+	      ( A.Block [A.Expr e1 ; A.While (e2, A.Block [body ; A.Expr e3]) ] )
+
+      | A.Return e -> ignore (match env.ret_typ with
+          A.Void -> L.build_ret_void env.builder
+        | _ -> L.build_ret (expr env e) env.builder); env
+       (* | If of expr * stmt * stmt *)
     in
 
     let global_stmt env = function
@@ -299,13 +290,39 @@ let translate (functions, statements) =
         let ftype_main = L.function_type i32_t [||] in
         let main_func = L.define_function "main" ftype_main the_module in
         let builder = L.builder_at_end context (L.entry_block main_func) in
-        let env = {locals = StringMap.empty; builder = builder; the_func = main_func} in 
+        let env = { locals = StringMap.empty; builder = builder; the_func = main_func; ret_typ = A.Int } in 
 
         let end_env = List.fold_left global_stmt env sl in
 
         (* Add a return if the last block falls off the end *)
         add_terminal end_env.builder (L.build_ret (L.const_int i32_t 0))
     in
+
+    let build_function_body fdecl = 
+        let (the_function, _) = StringMap.find fdecl.A.fname function_decls in
+        let builder = L.builder_at_end context (L.entry_block the_function) in 
+        let add_formal m (ty, dectr) p =
+            let n = id_of_dectr(dectr) in
+            L.set_value_name n p;
+            let local = L.build_alloca (lltype_of_typ ty) n builder in
+            ignore (L.build_store p local builder);
+            StringMap.add n (local, (ty, dectr)) m
+        in
+        let formals = List.fold_left2 add_formal StringMap.empty fdecl.A.formals
+            (Array.to_list (L.params the_function))
+        in
+        let env = { locals = formals; builder = builder; the_func = the_function; ret_typ = fdecl.A.typ } in
+
+        (* Build the code for each statement in the function *)
+        let env = stmt env (A.Block fdecl.A.body) in
+
+        (* Add a return if the last block falls off the end *)
+        add_terminal env.builder (match fdecl.A.typ with
+          A.Void -> L.build_ret_void
+        | A.Float -> L.build_ret (L.const_float float_t 0.)
+        | t -> L.build_ret (L.const_int (lltype_of_typ t) 0))
+    in
+    
     build_main_function (List.rev statements);
-    (*List.iter build_function_body functions;*)
+    List.iter build_function_body functions;
     the_module
