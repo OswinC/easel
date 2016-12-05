@@ -176,21 +176,23 @@ let translate (functions, statements) =
 	  	) exp1 exp2 "tmp" env.builder 
 	  | A.Unop(op, e) ->
 	    let exp = expr env e in
-            let typ = L.string_of_lltype (L.type_of exp) in
-            let fincrement b n en = L.build_fadd b (L.const_float float_t 1.0) n en in
-            let iincrement b n en = L.build_add b (L.const_int i32_t 1) n en in
+        let typ = L.string_of_lltype (L.type_of exp) in
+        (*let fincrement b n en = L.build_fadd b (L.const_float float_t 1.0) n en in*)
+        (*let iincrement b n en = L.build_add b (L.const_int i32_t 1) n en in*)
 	    (match op with
-	    	A.Neg -> L.build_neg
-	      | A.Not -> L.build_not
-(*	      | A.Inc -> if typ = "double" then fincrement 
-	      			 else iincrement 
-	      | A.Dec -> if t = A.Int then (L.build_sub 1)
-	      			 else (L.build_fsub 1)*)
+	    	A.Neg -> L.build_neg exp "tmp" env.builder
+	      | A.Not -> L.build_not exp "tmp" env.builder
+          | A.Inc -> (match typ with
+            "double" -> expr env (A.Assign(e, A.Binop(e, A.Add, A.FloatLit(1.0))))
+            | _ -> expr env (A.Assign(e, A.Binop(e, A.Add, A.IntLit(1))))
+            )
+          (*| A.Dec -> if t = A.Int then (L.build_sub 1)*)
+                       (*else (L.build_fsub 1)*)
 	      (* TODO: UMult, UDive, UPow
 	      | A.UMult ->
 	      | A.UDiv ->
 	      | A.UPow -> *)
-	    ) exp "tmp" env.builder
+	    ) 
 	  (*TODO: EleAt, PropAcc, AnonFunc, finish Call *)
 	 (* | A.Call (func, act) -> 
 	  	let (fdef, fdecl) = StringMap.find func func_decls in 
