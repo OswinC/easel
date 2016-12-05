@@ -299,11 +299,11 @@ let translate (functions, statements) =
 
         let pred_env = { env with builder = (L.builder_at_end context pred_bb) } in
         let pred_v = expr pred_env pred in
-        let pred_t = L.string_of_lltype (L.type_of pred_v) in
+        let pred_t = L.type_of pred_v in
 
         let merge_bb = L.append_block context "merge" env.the_func in 
         let cmp_v =
-            if pred_t = "i32" then L.build_icmp L.Icmp.Ne pred_v (L.const_int i32_t 0) "cmp" pred_env.builder
+            if pred_t = i32_t then L.build_icmp L.Icmp.Ne pred_v (L.const_int i32_t 0) "cmp" pred_env.builder
             else pred_v in
         ignore (L.build_cond_br cmp_v body_bb merge_bb pred_env.builder);
         { env with builder = (L.builder_at_end context merge_bb) }
@@ -311,9 +311,17 @@ let translate (functions, statements) =
       | A.For (e1, e2, e3, body) -> stmt env
 	      ( A.Block [A.Expr e1 ; A.While (e2, A.Block [body ; A.Expr e3]) ] )
 
-      | A.Return e -> ignore (match env.ret_typ with
-          A.Void -> L.build_ret_void env.builder
-        | _ -> L.build_ret (expr env e) env.builder); env
+      | A.Return e ->
+			let e' = expr env e in
+            let e_t = L.type_of e' in
+			ignore (match (env.ret_typ, e_t) with
+			  (A.Void, _) -> L.build_ret_void env.builder
+			| (A.Int, float_t) -> let e'' = L.build_fptosi e' i32_t "tmp" env.builder in
+                                   L.build_ret e'' env.builder
+			| (A.Float, i32_t) -> let e'' = L.build_sitofp e' float_t "tmp" env.builder in
+                                   L.build_ret e'' env.builder
+			| _ -> L.build_ret (expr env e) env.builder
+            ); env
        (* | If of expr * stmt * stmt *)
     in
 
