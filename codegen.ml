@@ -247,7 +247,7 @@ let translate (functions, statements) =
 	
     let rec stmt env = function
         (* Discard the locals built in the inner block *)
-        A.Block sl -> ignore(List.fold_left stmt env sl); env
+        A.Block sl -> List.fold_left stmt env sl
       | A.Expr e -> ignore (expr env e); env
       | A.Vdef (t, initds) ->
         List.fold_left (local_var t) env initds
@@ -269,11 +269,17 @@ let translate (functions, statements) =
             builder = (L.builder_at_end context pred_bb);
             the_func = env.the_func } in
         let pred_v = expr pred_env pred in
+        let pred_t = L.string_of_lltype (L.type_of pred_v) in
 
         let merge_bb = L.append_block context "merge" env.the_func in 
-        let cmp_v = L.build_icmp L.Icmp.Ne pred_v (L.const_int i32_t 0) "cmp" pred_env.builder in
+        let cmp_v =
+            if pred_t = "i32" then L.build_icmp L.Icmp.Ne pred_v (L.const_int i32_t 0) "cmp" pred_env.builder
+            else pred_v in
         ignore (L.build_cond_br cmp_v body_bb merge_bb pred_env.builder);
         { locals = env.locals; builder = L.builder_at_end context merge_bb; the_func = env.the_func }
+
+      | A.For (e1, e2, e3, body) -> stmt env
+	    ( A.Block [A.Expr e1 ; A.While (e2, A.Block [body ; A.Expr e3]) ] )
        (* | A.Return of expr
         | If of expr * stmt * stmt
         | For of expr * expr * expr * stmt
