@@ -111,10 +111,13 @@ let translate (functions, statements) =
     let extfunc_do_draw = L.declare_function "do_draw" extfunc_do_draw_t the_module in 
     let extfunc_printf_t = L.var_arg_function_type i32_t [| L.pointer_type i8_t |] in
     let extfunc_printf = L.declare_function "printf" extfunc_printf_t the_module in
-    (* TODO: fix so that can raise doubles by doubles and ints by ints *)
+    (* TODO: fix so that can raise ints by ints *)
+    let extfunc_pow_t = L.function_type float_t [| float_t; float_t |] in
+    let extfunc_pow = L.declare_function "llvm.pow.f64" extfunc_pow_t the_module in
+    let pow_call b e n bdr = L.build_call extfunc_pow [|b; e|] n bdr in
     let extfunc_powi_t = L.function_type float_t [| float_t; i32_t |] in
     let extfunc_powi = L.declare_function "llvm.powi.f64" extfunc_powi_t the_module in
-    let powi_call b e n en = L.build_call extfunc_powi [|b; e|] n en in
+    let powi_call b e n bdr = L.build_call extfunc_powi [|b; e|] n bdr in
 
 
 	(* TODO: lookup local table before go into globals *)
@@ -129,15 +132,17 @@ let translate (functions, statements) =
 	  | A.FloatLit f -> L.const_float float_t f
 	  | A.BoolLit b -> L.const_int i1_t (if b then 1 else 0)
 	  (*| A.ArrLit a -> (* TODO: ArrLit *)*)
-	  | A.PixLit (p1, p2, p3) -> let p1' = expr env p1
-                                     and p2' = expr env p2 
-                                     and p3' = expr env p3 
-				     and i = L.const_int i32_t 256 in
-                                     let ii = L.build_mul i i "tmp" env.builder in
-                                     let p2'' = L.build_mul p2' i "tmp" env.builder
-                                     and p3'' = L.build_mul p3' ii "tmp" env.builder in
-                                     let p12 = L.build_add p1' p2'' "tmp" env.builder in
-                                         L.build_add p12 p3'' "tmp" env.builder
+	  | A.PixLit (r_e, g_e, b_e) -> let r_v = expr env r_e
+                                    and g_v = expr env g_e
+                                    and b_v = expr env b_e in
+                                    let shift_r = L.const_int i32_t 16777216 (* left shift for 24 bits *)
+                                    and shift_g = L.const_int i32_t 65536 (* left shift for 16 bits *)
+                                    and shift_b = L.const_int i32_t 256 in (* left shift for 8 bits *)
+                                    let r_v' = L.build_mul r_v shift_r "tmp" env.builder
+                                    and g_v' = L.build_mul g_v shift_g "tmp" env.builder
+                                    and b_v' = L.build_mul b_v shift_b "tmp" env.builder in
+                                    let p_v' = L.build_add r_v' g_v' "tmp" env.builder in
+                                        L.build_add p_v' b_v' "tmp" env.builder
           | A.Id id -> L.build_load (fst (lookup env id)) id env.builder
 	  | A.Noexpr -> L.const_int i32_t 0
 	  | A.Binop (e1, op, e2) -> 
@@ -148,10 +153,20 @@ let translate (functions, statements) =
                 (match op with
 	  	  A.Add -> if typ1 = "double" then L.build_fadd else L.build_add
 	  	| A.Sub -> if typ1 = "double" then L.build_fsub else L.build_sub
-	  	| A.Mult -> if typ1 = "double" then L.build_fmul else L.build_mul
+		| A.Mult -> (match (typ1, typ2) with
+				  ("double", "double") -> L.build_fmul
+				| ("i32", "i32") -> L.build_mul 
+				| ("double", "i32") ->
+					(fun e1 e2 n bdr -> let e2' = L.build_sitofp e2 float_t "tmp" bdr in
+										L.build_fmul e1 e2' "tmp" bdr)
+				| ("i32", "double") ->
+					(fun e1 e2 n bdr -> let e1' = L.build_sitofp e1 float_t "tmp" bdr in
+										L.build_fmul e1' e2 "tmp" bdr)
+				)
 	  	| A.Div -> if typ1 = "double" then L.build_fdiv else L.build_sdiv
 	  	| A.Mod -> L.build_urem 
-	  	| A.Pow -> if typ1 = "double" then powi_call
+	  	| A.Pow -> if typ1 = "double" && typ2 = "i32" then powi_call
+                   else if typ1 = "double" && typ2 = "double" then pow_call
 		           else let _ = L.build_sitofp exp1 float_t "tmp" env.builder in powi_call
 		           (*else let _ = A.Assign(e1, (L.build_sitofp exp1 float_t "tmp" env.builder)) in powi_call*)
 	  	| A.Equal -> if typ1 = "double" then (L.build_fcmp L.Fcmp.Oeq)
@@ -284,11 +299,11 @@ let translate (functions, statements) =
 
         let pred_env = { env with builder = (L.builder_at_end context pred_bb) } in
         let pred_v = expr pred_env pred in
-        let pred_t = L.string_of_lltype (L.type_of pred_v) in
+        let pred_t = L.type_of pred_v in
 
         let merge_bb = L.append_block context "merge" env.the_func in 
         let cmp_v =
-            if pred_t = "i32" then L.build_icmp L.Icmp.Ne pred_v (L.const_int i32_t 0) "cmp" pred_env.builder
+            if pred_t = i32_t then L.build_icmp L.Icmp.Ne pred_v (L.const_int i32_t 0) "cmp" pred_env.builder
             else pred_v in
         ignore (L.build_cond_br cmp_v body_bb merge_bb pred_env.builder);
         { env with builder = (L.builder_at_end context merge_bb) }
@@ -296,9 +311,17 @@ let translate (functions, statements) =
       | A.For (e1, e2, e3, body) -> stmt env
 	      ( A.Block [A.Expr e1 ; A.While (e2, A.Block [body ; A.Expr e3]) ] )
 
-      | A.Return e -> ignore (match env.ret_typ with
-          A.Void -> L.build_ret_void env.builder
-        | _ -> L.build_ret (expr env e) env.builder); env
+      | A.Return e ->
+			let e' = expr env e in
+            let e_t = L.type_of e' in
+			ignore (match (env.ret_typ, e_t) with
+			  (A.Void, _) -> L.build_ret_void env.builder
+			| (A.Int, float_t) -> let e'' = L.build_fptosi e' i32_t "tmp" env.builder in
+                                   L.build_ret e'' env.builder
+			| (A.Float, i32_t) -> let e'' = L.build_sitofp e' float_t "tmp" env.builder in
+                                   L.build_ret e'' env.builder
+			| _ -> L.build_ret (expr env e) env.builder
+            ); env
        (* | If of expr * stmt * stmt *)
     in
 
