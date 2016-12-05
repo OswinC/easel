@@ -153,7 +153,16 @@ let translate (functions, statements) =
                 (match op with
 	  	  A.Add -> if typ1 = "double" then L.build_fadd else L.build_add
 	  	| A.Sub -> if typ1 = "double" then L.build_fsub else L.build_sub
-	  	| A.Mult -> if typ1 = "double" then L.build_fmul else L.build_mul
+		| A.Mult -> (match (typ1, typ2) with
+				  ("double", "double") -> L.build_fmul
+				| ("i32", "i32") -> L.build_mul 
+				| ("double", "i32") ->
+					(fun e1 e2 n bdr -> let e2' = L.build_sitofp e2 float_t "tmp" bdr in
+										L.build_fmul e1 e2' "tmp" bdr)
+				| ("i32", "double") ->
+					(fun e1 e2 n bdr -> let e1' = L.build_sitofp e1 float_t "tmp" bdr in
+										L.build_fmul e1' e2 "tmp" bdr)
+				)
 	  	| A.Div -> if typ1 = "double" then L.build_fdiv else L.build_sdiv
 	  	| A.Mod -> L.build_urem 
 	  	| A.Pow -> if typ1 = "double" && typ2 = "i32" then powi_call
