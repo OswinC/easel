@@ -7,12 +7,8 @@ function int fib(int x, int z)
 
 }
 
-function int main()
-{
-  int x;
-  x = 5;
-  print(fib(x));
-  return 0;
-}
 
-return main();
+int x;
+x = 5;
+print(fib(x));
+
