@@ -151,44 +151,44 @@ let translate (functions, statements) =
           | A.Id id -> L.build_load (fst (lookup env id)) id env.builder
 	  | A.Noexpr -> L.const_int i32_t 0
 	  | A.Binop (e1, op, e2) -> 
-                let exp1 = expr env e1
-                and exp2 = expr env e2 in
-                let typ1 = L.string_of_lltype (L.type_of exp1) 
-                and typ2 = L.string_of_lltype (L.type_of exp2) in 
-                (match op with
-	  	  A.Add -> if typ1 = "double" then L.build_fadd else L.build_add
-	  	| A.Sub -> if typ1 = "double" then L.build_fsub else L.build_sub
-		| A.Mult -> (match (typ1, typ2) with
-				  ("double", "double") -> L.build_fmul
-				| ("i32", "i32") -> L.build_mul 
-				| ("double", "i32") ->
-					(fun e1 e2 n bdr -> let e2' = L.build_sitofp e2 float_t "tmp" bdr in
-										L.build_fmul e1 e2' "tmp" bdr)
-				| ("i32", "double") ->
-					(fun e1 e2 n bdr -> let e1' = L.build_sitofp e1 float_t "tmp" bdr in
-										L.build_fmul e1' e2 "tmp" bdr)
-				)
-	  	| A.Div -> if typ1 = "double" then L.build_fdiv else L.build_sdiv
-	  	| A.Mod -> L.build_urem 
-	  	| A.Pow -> if typ1 = "double" && typ2 = "i32" then powi_call
-                   else if typ1 = "double" && typ2 = "double" then pow_call
-		           else let _ = L.build_sitofp exp1 float_t "tmp" env.builder in powi_call
-		           (*else let _ = A.Assign(e1, (L.build_sitofp exp1 float_t "tmp" env.builder)) in powi_call*)
-	  	| A.Equal -> if typ1 = "double" then (L.build_fcmp L.Fcmp.Oeq)
-	  				 else (L.build_icmp L.Icmp.Eq)
-	  	| A.Neq -> if typ1 = "double" then (L.build_fcmp L.Fcmp.One)
-                                         else (L.build_icmp L.Icmp.Ne)
-	  	| A.Less -> if typ1 = "double" then (L.build_fcmp L.Fcmp.Olt)
-                                         else (L.build_icmp L.Icmp.Slt)
-	  	| A.Leq -> if typ1 = "double" then (L.build_fcmp L.Fcmp.Ole)
-             	  			 else (L.build_icmp L.Icmp.Sle)
-	  	| A.Greater -> if typ1 = "double" then (L.build_fcmp L.Fcmp.Ogt)
-	  				   else (L.build_icmp L.Icmp.Sgt)
-	  	| A.Geq -> if typ1 = "double" then (L.build_fcmp L.Fcmp.Oge) 
-	  			   else (L.build_icmp L.Icmp.Sge)
-	  	| A.And -> L.build_and
-	  	| A.Or -> L.build_or
-	  	) exp1 exp2 "tmp" env.builder 
+            let exp1 = expr env e1
+            and exp2 = expr env e2 in
+            let typ1 = L.string_of_lltype (L.type_of exp1) 
+            and typ2 = L.string_of_lltype (L.type_of exp2) in 
+            let build_op_by_type opf opi =
+                (match (typ1, typ2) with
+                  ("double", "double") -> opf
+                | ("i32", "i32") -> opi
+                | ("double", "i32") ->
+                    (fun e1 e2 n bdr -> let e2' = L.build_sitofp e2 float_t "tmp" bdr in
+                                        opf e1 e2' "tmp" bdr)
+                | ("i32", "double") ->
+                    (fun e1 e2 n bdr -> let e1' = L.build_sitofp e1 float_t "tmp" bdr in
+                                        opf e1' e2 "tmp" bdr)
+                ) in
+            (match op with
+              A.Add -> build_op_by_type L.build_fadd L.build_add
+            | A.Sub -> build_op_by_type  L.build_fsub L.build_sub
+            | A.Mult -> build_op_by_type L.build_fmul L.build_mul
+            | A.Div -> build_op_by_type  L.build_fdiv L.build_sdiv
+            | A.Mod -> build_op_by_type  L.build_frem L.build_srem
+            | A.Pow -> (match (typ1, typ2) with
+                        ("double", "i32") -> powi_call
+                        | ("double", "double") -> pow_call
+                        | ("i32", "double") -> (fun e1 e2 n bdr -> let e1' = L.build_sitofp e1 float_t "tmp" bdr in
+                                                pow_call e1' e2 "tmp" bdr)
+                        | ("i32", "i32") -> (fun e1 e2 n bdr -> let e1' = L.build_sitofp e1 float_t "tmp" bdr in
+                                                powi_call e1' e2 "tmp" bdr)
+                        )
+            | A.Equal -> build_op_by_type (L.build_fcmp L.Fcmp.Oeq) (L.build_icmp L.Icmp.Eq)
+            | A.Neq -> build_op_by_type (L.build_fcmp L.Fcmp.One) (L.build_icmp L.Icmp.Ne)
+            | A.Less -> build_op_by_type (L.build_fcmp L.Fcmp.Olt) (L.build_icmp L.Icmp.Slt)
+            | A.Leq -> build_op_by_type (L.build_fcmp L.Fcmp.Ole) (L.build_icmp L.Icmp.Sle)
+            | A.Greater -> build_op_by_type (L.build_fcmp L.Fcmp.Ogt) (L.build_icmp L.Icmp.Sgt)
+            | A.Geq -> build_op_by_type (L.build_fcmp L.Fcmp.Oge) (L.build_icmp L.Icmp.Sge)
+            | A.And -> L.build_and
+            | A.Or -> L.build_or
+            ) exp1 exp2 "tmp" env.builder 
 	  | A.Unop(op, e) ->
 	        let exp = expr env e in
                 let typ = L.string_of_lltype (L.type_of exp) in
