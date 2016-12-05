@@ -227,9 +227,9 @@ let translate (functions, statements) =
         )
       (* Call external functions *)
       (* int draw() *)
-      | A.Call (Id("draw"), []) ->
+      | A.Call (A.Id("draw"), []) ->
         L.build_call extfunc_draw_def [||] "draw_def" env.builder
-      | A.Call (Id("draw"), [Id(cid); e2; e3]) ->
+      | A.Call (A.Id("draw"), [A.Id(cid); e2; e3]) ->
         let c = lookup env cid in
         let c_llval = fst c in
         let c_col = snd (snd c) in
@@ -240,20 +240,20 @@ let translate (functions, statements) =
         let c_ptr = L.build_in_bounds_gep c_llval [|zero; zero; zero|] "cnvstmp" env.builder in
         L.build_call extfunc_do_draw [| c_ptr; L.const_int i32_t w; L.const_int i32_t h;
                                         expr env e2; expr env e3 |] "do_draw" env.builder
-      | A.Call (Id("print"), [e]) -> 
+      | A.Call (A.Id("print"), [e]) -> 
         let int_format_str = L.build_global_stringptr "%d\n" "fmt" env.builder in
         L.build_call extfunc_printf [| int_format_str ; (expr env e) |] "printf" env.builder
-      | A.Call (Id("printfl"), [e]) -> 
+      | A.Call (A.Id("printfl"), [e]) -> 
         let float_format_str = L.build_global_stringptr "%f\n" "fffmt" env.builder in
         L.build_call extfunc_printf [| float_format_str ; (expr env e) |] "printf" env.builder
         (* TODO: Overloading and passing arrays for function calls *)
-      | A.Call (Id("sin"), [e]) ->
+      | A.Call (A.Id("sin"), [e]) ->
 	 L.build_call extfunc_sin [|expr env e|] "sin" env.builder
-      | A.Call (Id("cos"), [e]) ->
+      | A.Call (A.Id("cos"), [e]) ->
          L.build_call extfunc_cos [|expr env e|] "cos" env.builder
-      | A.Call (Id("tan"), [e]) ->
+      | A.Call (A.Id("tan"), [e]) ->
          L.build_call extfunc_tan [|expr env e|] "tan" env.builder
-      | A.Call (Id(func), act) -> 
+      | A.Call (A.Id(func), act) -> 
           let (fdef, fdecl) = StringMap.find func function_decls in 
           let actuals = List.rev (List.map (expr env) (List.rev act)) in
           let result = (match fdecl.A.typ with A.Void -> ""
