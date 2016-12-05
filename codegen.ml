@@ -111,10 +111,13 @@ let translate (functions, statements) =
     let extfunc_do_draw = L.declare_function "do_draw" extfunc_do_draw_t the_module in 
     let extfunc_printf_t = L.var_arg_function_type i32_t [| L.pointer_type i8_t |] in
     let extfunc_printf = L.declare_function "printf" extfunc_printf_t the_module in
-    (* TODO: fix so that can raise doubles by doubles and ints by ints *)
+    (* TODO: fix so that can raise ints by ints *)
+    let extfunc_pow_t = L.function_type float_t [| float_t; float_t |] in
+    let extfunc_pow = L.declare_function "llvm.pow.f64" extfunc_pow_t the_module in
+    let pow_call b e n bdr = L.build_call extfunc_pow [|b; e|] n bdr in
     let extfunc_powi_t = L.function_type float_t [| float_t; i32_t |] in
     let extfunc_powi = L.declare_function "llvm.powi.f64" extfunc_powi_t the_module in
-    let powi_call b e n en = L.build_call extfunc_powi [|b; e|] n en in
+    let powi_call b e n bdr = L.build_call extfunc_powi [|b; e|] n bdr in
 
 
 	(* TODO: lookup local table before go into globals *)
@@ -151,7 +154,8 @@ let translate (functions, statements) =
 	  	| A.Mult -> if typ1 = "double" then L.build_fmul else L.build_mul
 	  	| A.Div -> if typ1 = "double" then L.build_fdiv else L.build_sdiv
 	  	| A.Mod -> L.build_urem 
-	  	| A.Pow -> if typ1 = "double" then powi_call
+	  	| A.Pow -> if typ1 = "double" && typ2 = "i32" then powi_call
+                   else if typ1 = "double" && typ2 = "double" then pow_call
 		           else let _ = L.build_sitofp exp1 float_t "tmp" env.builder in powi_call
 		           (*else let _ = A.Assign(e1, (L.build_sitofp exp1 float_t "tmp" env.builder)) in powi_call*)
 	  	| A.Equal -> if typ1 = "double" then (L.build_fcmp L.Fcmp.Oeq)
