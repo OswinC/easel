@@ -118,7 +118,12 @@ let translate (functions, statements) =
     let extfunc_powi_t = L.function_type float_t [| float_t; i32_t |] in
     let extfunc_powi = L.declare_function "llvm.powi.f64" extfunc_powi_t the_module in
     let powi_call b e n bdr = L.build_call extfunc_powi [|b; e|] n bdr in
-
+    let extfunc_sin_t = L.var_arg_function_type float_t [|float_t|] in 
+    let extfunc_sin = L.declare_function "sin" extfunc_sin_t the_module in
+    let extfunc_cos_t = L.var_arg_function_type float_t [|float_t|] in 
+    let extfunc_cos = L.declare_function "cos" extfunc_cos_t the_module in
+    let extfunc_tan_t = L.var_arg_function_type float_t [|float_t|] in 
+    let extfunc_tan = L.declare_function "tan" extfunc_tan_t the_module in 
 
 	(* TODO: lookup local table before go into globals *)
 	let lookup env n = try StringMap.find n env.locals
@@ -205,14 +210,6 @@ let translate (functions, statements) =
           (*    | A.UPow -> expr env(A.Assign(e, A.Binop(e, A.Pow, e)))*)
 	        ) 
 	  (*TODO: PropAcc, AnonFunc, finish Call *)
-	 (* | A.Call (func, act) -> 
-	  	let (fdef, fdecl) = StringMap.find func func_decls in 
-	  	let actuals = List.rev (List.map (expr env) (List.rev act)) in
-	  	let result = (match fdecl.A.typ with A.Void -> ""
-	  									   | _ -> func ^ "_result") in
-	  		L.build_call fdef (Array.of_list actuals) result env.builder in
-	  		(* TODO: add terminal if there's none *)
-	  		(* TODO: statements and the builder for the statement's successor *) *)
       | A.Assign(e1, e2) -> let e1' = (match e1 with
 			            A.Id s -> fst (lookup env s)
 				  | A.EleAt(arr, ind) -> (match arr with 
@@ -250,6 +247,12 @@ let translate (functions, statements) =
         let float_format_str = L.build_global_stringptr "%f\n" "fffmt" env.builder in
         L.build_call extfunc_printf [| float_format_str ; (expr env e) |] "printf" env.builder
         (* TODO: Overloading and passing arrays for function calls *)
+      | A.Call (Id("sin"), [e]) ->
+	 L.build_call extfunc_sin [|expr env e|] "sin" env.builder
+      | A.Call (Id("cos"), [e]) ->
+         L.build_call extfunc_cos [|expr env e|] "cos" env.builder
+      | A.Call (Id("tan"), [e]) ->
+         L.build_call extfunc_tan [|expr env e|] "tan" env.builder
       | A.Call (Id(func), act) -> 
           let (fdef, fdecl) = StringMap.find func function_decls in 
           let actuals = List.rev (List.map (expr env) (List.rev act)) in
