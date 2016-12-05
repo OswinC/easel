@@ -128,7 +128,7 @@ let translate (functions, statements) =
 
 	(* Constructing code for expressions *)
 	let rec expr env = function
-		A.IntLit i -> L.const_int i32_t i
+	    A.IntLit i -> L.const_int i32_t i
 	  | A.FloatLit f -> L.const_float float_t f
 	  | A.BoolLit b -> L.const_int i1_t (if b then 1 else 0)
 	  (*| A.ArrLit a -> (* TODO: ArrLit *)*)
@@ -141,13 +141,9 @@ let translate (functions, statements) =
                                      and p3'' = L.build_mul p3' ii "tmp" env.builder in
                                      let p12 = L.build_add p1' p2'' "tmp" env.builder in
                                          L.build_add p12 p3'' "tmp" env.builder
-      | A.Id id -> L.build_load (fst (lookup env id)) id env.builder
-
+          | A.Id id -> L.build_load (fst (lookup env id)) id env.builder
 	  | A.Noexpr -> L.const_int i32_t 0
-      
 	  | A.Binop (e1, op, e2) -> 
-	  	(* TODO: define typ1 somewhere above *)
-
                 let exp1 = expr env e1
                 and exp2 = expr env e2 in
                 let typ1 = L.string_of_lltype (L.type_of exp1) 
@@ -158,7 +154,9 @@ let translate (functions, statements) =
 	  	| A.Mult -> if typ1 = "double" then L.build_fmul else L.build_mul
 	  	| A.Div -> if typ1 = "double" then L.build_fdiv else L.build_sdiv
 	  	| A.Mod -> L.build_urem 
-	  	| A.Pow -> powi_call
+	  	| A.Pow -> if typ1 = "double" then powi_call
+		           else let _ = L.build_sitofp exp1 float_t "tmp" env.builder in powi_call
+		           (*else let _ = A.Assign(e1, (L.build_sitofp exp1 float_t "tmp" env.builder)) in powi_call*)
 	  	| A.Equal -> if typ1 = "double" then (L.build_fcmp L.Fcmp.Oeq)
 	  				 else (L.build_icmp L.Icmp.Eq)
 	  	| A.Neq -> if typ1 = "double" then (L.build_fcmp L.Fcmp.One)
@@ -175,25 +173,26 @@ let translate (functions, statements) =
 	  	| A.Or -> L.build_or
 	  	) exp1 exp2 "tmp" env.builder 
 	  | A.Unop(op, e) ->
-	    let exp = expr env e in
-        let typ = L.string_of_lltype (L.type_of exp) in
+	        let exp = expr env e in
+                let typ = L.string_of_lltype (L.type_of exp) in
         (*let fincrement b n en = L.build_fadd b (L.const_float float_t 1.0) n en in*)
         (*let iincrement b n en = L.build_add b (L.const_int i32_t 1) n en in*)
-	    (match op with
-	    	A.Neg -> L.build_neg exp "tmp" env.builder
-	      | A.Not -> L.build_not exp "tmp" env.builder
-          | A.Inc -> (match typ with
-            "double" -> expr env (A.Assign(e, A.Binop(e, A.Add, A.FloatLit(1.0))))
-            | _ -> expr env (A.Assign(e, A.Binop(e, A.Add, A.IntLit(1))))
-            )
-          (*| A.Dec -> if t = A.Int then (L.build_sub 1)*)
-                       (*else (L.build_fsub 1)*)
-	      (* TODO: UMult, UDive, UPow
-	      | A.UMult ->
-	      | A.UDiv ->
-	      | A.UPow -> *)
-	    ) 
-	  (*TODO: EleAt, PropAcc, AnonFunc, finish Call *)
+	        (match op with
+	    	  A.Neg -> L.build_neg exp "tmp" env.builder
+	        | A.Not -> L.build_not exp "tmp" env.builder
+                | A.Inc -> (match typ with
+                    "double" -> expr env (A.Assign(e, A.Binop(e, A.Add, A.FloatLit(1.0))))
+                  | _ -> expr env (A.Assign(e, A.Binop(e, A.Add, A.IntLit(1))))
+                )
+                | A.Dec -> (match typ with
+                    "double" -> expr env (A.Assign(e, A.Binop(e, A.Sub, A.FloatLit(1.0))))
+                  | _ -> expr env (A.Assign(e, A.Binop(e, A.Sub, A.IntLit(1))))
+	        )
+                | A.UMult -> expr env (A.Assign(e, A.Binop(e, A.Mult, e)))
+	        | A.UDiv -> expr env(A.Assign(e, A.Binop(e, A.Div, e)))
+          (*    | A.UPow -> expr env(A.Assign(e, A.Binop(e, A.Pow, e)))*)
+	        ) 
+	  (*TODO: PropAcc, AnonFunc, finish Call *)
 	 (* | A.Call (func, act) -> 
 	  	let (fdef, fdecl) = StringMap.find func func_decls in 
 	  	let actuals = List.rev (List.map (expr env) (List.rev act)) in
@@ -202,16 +201,16 @@ let translate (functions, statements) =
 	  		L.build_call fdef (Array.of_list actuals) result env.builder in
 	  		(* TODO: add terminal if there's none *)
 	  		(* TODO: statements and the builder for the statement's successor *) *)
-      | A.Assign(e1, e2) -> let e1' = (match e1 with 
-					  A.Id s -> fst (lookup env s)
-					| A.EleAt(arr, ind) -> (match arr with 
-					    A.Id s -> L.build_gep (fst (lookup env s)) [|L.const_int i32_t 0; expr env ind|] s env.builder
-					  | A.EleAt(s, l) -> let s' = get_arr_id s in 
-					    L.build_gep (fst (lookup env s')) [|L.const_int i32_t 0; expr env ind; expr env l|] s' env.builder
+      | A.Assign(e1, e2) -> let e1' = (match e1 with
+			            A.Id s -> fst (lookup env s)
+				  | A.EleAt(arr, ind) -> (match arr with 
+				       A.Id s -> L.build_gep (fst (lookup env s)) [|L.const_int i32_t 0; expr env ind|] s env.builder
+				     | A.EleAt(s, l) -> let s' = get_arr_id s in 
+					L.build_gep (fst (lookup env s')) [|L.const_int i32_t 0; expr env ind; expr env l|] s' env.builder
 					  )
 					)
 			    and e2' = expr env e2 in
-			  ignore(L.build_store e2' e1' env.builder); e2'
+			    ignore(L.build_store e2' e1' env.builder); e2'
       | A.EleAt(arr, ind) -> (match arr with
           A.Id s -> L.build_load (L.build_gep (fst (lookup env s )) [|L.const_int i32_t 0; expr env ind|] s env.builder) s env.builder
         | A.EleAt(s, l) -> let s' = get_arr_id s in
