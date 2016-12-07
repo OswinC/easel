@@ -78,13 +78,21 @@ let translate (functions, statements) =
       | A.EleAt(id,_) -> get_arr_id id
     in
 
+    let init_var t dectr = function 
+        A.IntLit i -> L.const_int i32_t i
+      | A.FloatLit f -> L.const_float float_t f
+      | A.BoolLit b -> L.const_int i1_t (if b then 1 else 0)
+      (* A.PixLit ->
+      | A.ArrLit -> *)
+      | _ -> llval_of_dectr t dectr 
+    in 
+
     let globals = Hashtbl.create 8 in
 
     let global_var t = function A.InitDectr(dectr, init) ->
-      (* TODO: if init is not empty, parse it and use it *)
-      let inst = llval_of_dectr t dectr in
+      let inst = init_var t dectr init in 
       let n = id_of_dectr dectr in
-      Hashtbl.add globals n (L.define_global n inst the_module, (t, dectr))
+      Hashtbl.add globals n (L.define_global n inst the_module, (t, dectr)) 
     in
 
     let function_decls = 
@@ -96,10 +104,10 @@ let translate (functions, statements) =
 	List.fold_left function_decl StringMap.empty functions in	
         
     let local_var t env = function A.InitDectr(dectr, init) ->
-      (* TODO: if init is not empty, parse it and use it *)
-      (*let inst = llval_of_dectr t dectr in*)
       let n = id_of_dectr dectr in
       let loc = L.build_alloca (lltype_of_typ t) n env.builder in
+      let inst = init_var t dectr init in 
+      let _ = L.build_store inst loc env.builder in 
       let locals = StringMap.add n (loc, (t, dectr)) env.locals in
       { env with locals = locals }
     in
