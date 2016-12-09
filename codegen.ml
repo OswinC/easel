@@ -119,7 +119,6 @@ let translate (functions, statements) =
     let extfunc_do_draw = L.declare_function "do_draw" extfunc_do_draw_t the_module in 
     let extfunc_printf_t = L.var_arg_function_type i32_t [| L.pointer_type i8_t |] in
     let extfunc_printf = L.declare_function "printf" extfunc_printf_t the_module in
-    (* TODO: fix so that can raise ints by ints *)
     let extfunc_pow_t = L.function_type float_t [| float_t; float_t |] in
     let extfunc_pow = L.declare_function "llvm.pow.f64" extfunc_pow_t the_module in
     let pow_call b e n bdr = L.build_call extfunc_pow [|b; e|] n bdr in
@@ -133,7 +132,6 @@ let translate (functions, statements) =
     let extfunc_tan_t = L.var_arg_function_type float_t [|float_t|] in 
     let extfunc_tan = L.declare_function "tan" extfunc_tan_t the_module in 
 
-	(* TODO: lookup local table before go into globals *)
 	let lookup env n = try StringMap.find n env.locals
 					 with Not_found -> Hashtbl.find globals n in 
 
@@ -303,7 +301,6 @@ let translate (functions, statements) =
         ignore (L.build_br pred_bb env.builder);
 
         let body_bb = L.append_block context "while_body" env.the_func in
-        (*todo!*)
         let body_env = { env with builder = (L.builder_at_end context body_bb) } in
         add_terminal (stmt body_env body).builder
         (L.build_br pred_bb);
