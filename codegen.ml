@@ -82,7 +82,7 @@ let translate (functions, statements) =
         A.IntLit i -> L.const_int i32_t i
       | A.FloatLit f -> L.const_float float_t f
       | A.BoolLit b -> L.const_int i1_t (if b then 1 else 0)
-      (* A.PixLit ->
+      (*| A.PixLit (r, g, b) ->  
       | A.ArrLit -> *)
       | _ -> llval_of_dectr t dectr 
     in 
@@ -213,9 +213,9 @@ let translate (functions, statements) =
 	        )
                 | A.UMult -> expr env (A.Assign(e, A.Binop(e, A.Mult, e)))
 	        | A.UDiv -> expr env(A.Assign(e, A.Binop(e, A.Div, e)))
-          (*    | A.UPow -> expr env(A.Assign(e, A.Binop(e, A.Pow, e)))*)
+                (*| A.UPow -> expr env(A.Assign(e, A.Binop(e, A.Pow, e)))*)
 	        ) 
-	  (*TODO: PropAcc, AnonFunc, finish Call *)
+	  (*TODO: AnonFunc, finish Call *)
       | A.Assign(e1, e2) -> let e1' = (match e1 with
 			            A.Id s -> fst (lookup env s)
 				  | A.EleAt(arr, ind) -> (match arr with 
@@ -230,6 +230,28 @@ let translate (functions, statements) =
           A.Id s -> L.build_load (L.build_gep (fst (lookup env s )) [|L.const_int i32_t 0; expr env ind|] s env.builder) s env.builder
         | A.EleAt(s, l) -> let s' = get_arr_id s in
           L.build_load (L.build_gep (fst (lookup env s')) [|L.const_int i32_t 0; expr env ind; expr env l|] s' env.builder) s' env.builder
+        )
+      | A.PropAcc(e,s)-> (match s with 
+          "red" -> let v = expr env e 
+                   and shift = L.const_int i32_t 24 in
+                     L.build_ashr v shift "tmp" env.builder
+        | "green" -> let v = expr env e
+                     and shift_r = L.const_int i32_t 24  
+                     and shift_g = L.const_int i32_t 16 in
+                     let r_v = L.build_ashr v shift_r "tmp" env.builder 
+                     and g_v = L.build_ashr v shift_g "tmp" env.builder 
+                     and shift = L.const_int i32_t 256 in 
+                     let r_v' = L.build_mul r_v shift "tmp" env.builder in
+                       L.build_sub g_v r_v' "tmp" env.builder
+        | "blue" -> let v = expr env e
+                    and shift_g = L.const_int i32_t 16
+                    and shift_b = L.const_int i32_t 8 in
+                    let g_v = L.build_ashr v shift_g "tmp" env.builder
+                    and b_v = L.build_ashr v shift_b "tmp" env.builder
+                    and shift_g' = L.const_int i32_t 256 in
+                    let g_v' = L.build_mul g_v shift_g' "tmp" env.builder in
+                      L.build_sub b_v g_v' "tmp" env.builder
+        (* "size" -> TODO *)
         )
       (* Call external functions *)
       (* int draw() *)
