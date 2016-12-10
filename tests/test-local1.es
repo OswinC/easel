@@ -6,8 +6,4 @@ function void foo(int i)
   print(i * i);
 }
 
-function int main()
-{
-  fun(100);
-  return 0;
-}
+fun(100);
