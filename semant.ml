@@ -8,10 +8,6 @@ module StringMap = Map.Make(String)
 
 let globals = Hashtbl.create 8;;
 
-(*
-let canvas_attrs = List.fold_left (fun m (t,n) -> StringMap.add n t m) StringMap.empty 
-        ([(Int, "h"); (Int, "w"); (Int, "size"); (Int, "data");])
-*)
 
 let check (functions, statements) =
   
@@ -33,14 +29,8 @@ let check (functions, statements) =
   (* check that rvalue type can be assigned to lvalue type *)
   let check_assign lvalt rvalt err =
         (* TODO: pix accepts assignment with both Int and Pix *)
-      if lvalt == rvalt then lvalt
-      else if (lvalt == Pix && rvalt == Int) then lvalt
-      else raise err
+      if lvalt == rvalt then lvalt else raise err
   in
-
-
-  if List.mem "print" (List.map (fun fd -> fd.fname) functions)
-  then raise (Failure("function print may not be defined")) else ();
 
   (* Check and build function table *)
   let functions =
@@ -60,12 +50,6 @@ let check (functions, statements) =
           body = []; checked = true }:: functions
   in
 
-(*
-(Pix, DecArr(DecArr(DecId("canvas"), 0), 0))
-typ_of_bind (Arr(Pix), DecArr(DecId("canvas"), 0))
-typ_of_bind (Arr(Arr(Pix)), DecId("canvas"))
-Arr(Arr(Pix)
-*)
     let rec typ_of_bind = function
           (t, DecId(_)) -> t
         | (t, DecArr(d, _)) -> typ_of_bind (Arr(t), d)
@@ -96,6 +80,13 @@ Arr(Arr(Pix)
           with Not_found -> raise (Failure ("undeclared identifier " ^ id))
     in
 
+    let length_of_arr_identifier locals id =
+      try StringMap.find id locals
+      with Not_found ->
+          try Hashtbl.find globals id
+          with Not_found -> raise (Failure ("undeclared identifier " ^ id))
+    in
+
     let rec id_of_dectr = function
           DecId(id) -> id
         | DecArr(d, _) -> id_of_dectr d
@@ -113,13 +104,12 @@ Arr(Arr(Pix)
       | EleAt(arr, length) -> helper (dimension + 1) arr
     in helper 0 e
 	in
+    
+    let rec length_of_arrdectr = function
+        | DecArr(DecId(_), l) -> [l] 
+        | DecArr(DecArr(DecId(_),len1),len2)-> [len1;len2]
+    in
 
-    let length_of_array e =
-      let rec helper len = function
-        Id(id) -> len
-      | EleAt(arr, length) -> helper (len + 1) arr
-    in helper 0 e
-	in
 
     (* Return the type of an expression or throw an exception *)
     let rec expr locals = function
@@ -135,44 +125,8 @@ Arr(Arr(Pix)
 
       (* TODO: check array type 
        * int a[4]; a = [1,2,3,4]; *)
-      | ArrLit el -> 
-            let rec checkarrtyp = function
-            [e] -> Arr(expr locals e)
-            | e1 :: e2 :: _ -> let t1 = expr locals e1 and t2 = expr locals e2 in 
-		if t1 = t2 then Arr(expr locals e1) 
-			else raise(Failure ("illegal array type " ^ string_of_expr e1))
-            | e1 :: e2 :: e -> if (expr locals e1 = expr locals e2) then checkarrtyp e2::e
-              in checkarrtyp el
+      | ArrLit el -> Arr(Int)
 
-      (* ArrLit of expr list *)
-      (*| ArrLit el -> 
-            let rec checkarrtyp = function
-             [] -> Arr(Int)
-            | e1 :: e2 -> let t1 = expr locals e1 and t2 = expr locals e2 in 
-		if t1 == t2 then Arr(expr locals e1) 
-			else raise(Failure ("illegal array type " ^ string_of_expr el))
-            | e1 :: e2 :: e -> if expr locals e1 == expr local e2 then checkarrtyp e2 :: e 
-              in checkarrtyp el*)
-    (*let type_of_ArrElement e =
-      let rec helper len = function
-        Id(id) -> len
-      | EleAt(arr, length) -> helper (len + 1) arr
-    in helper 0 e
-
-      let rec checkarrtyp = function
-            match el with (e1::e) -> 
-            let a1 = expr locals e1 in
-              a1 :: a2 : t when a1 = a2 -> checkarrtyp (e2 : e)
-            | _ :: t -> raise(Failure ("illegal array type " ^ string_of_expr el))
-      in  
-      let rec checkarrtyp = function
-            match el with (e1::e) -> 
-            let a1 = expr locals e1 and a2 = expr locals e2 in
-              a1 :: a2 : t when a1 = a2 -> checkarrtyp (e2 : e)
-            | _ :: t -> raise(Failure ("illegal array type " ^ string_of_expr el))
-      in  *)
-      (* And the checktype function can be reailized in
-        Assign(var,e) function below *)
 
       | Id s -> type_of_identifier locals s
       | Binop(e1, op, e2) as e -> let t1 = expr locals e1 and t2 = expr locals e2 in
@@ -203,14 +157,21 @@ Arr(Arr(Pix)
           let lt = type_of_identifier locals (id_of_lval var)
             and rt = expr locals e in
             (* TODO: check that var's dimension is <= lt *)
-              match var with 
-                |EleAt(arr, _) -> let d = dimension_of_array var 
-                     and di = dimension_of_array arr in 
-                      if d > di then raise(Failure ("illegal dimension access " ^ string_of_expr el))
-                     else check_assign lt rt (Failure ("illegal assignment " ^ 
-                       string_of_typ lt ^ " = " ^ string_of_typ rt ^ " in " ^ string_of_expr ex))
-                | _ -> check_assign lt rt (Failure ("illegal assignment " ^ 
+           (* match var with
+            EleAt(Id(a), length) -> 
+            let arrlen_in_map = fst (length_of_arrdectr (snd (StringMap.find locals a))) in 
+              if length < arrlen_in_map then check_assign lt rt (Failure ("illegal assignment " ^ 
                   string_of_typ lt ^ " = " ^ string_of_typ rt ^ " in " ^ string_of_expr ex))
+              else raise(Failure ("illegal dimension access " ^ string_of_expr el))
+          | EleAt(EleAt(Id(a),length1),length2) -> 
+            let arrlen1_in_map = fst (length_of_arrdectr (snd (StringMap.find locals a)))
+              and arrlen2_in_map = snd (length_of_arrdectr (snd (StringMap.find locals a))) in
+              if length1 < arrlen1_in_map && length2 < arrlen2_in_map then check_assign lt rt (Failure ("illegal assignment " ^ 
+                  string_of_typ lt ^ " = " ^ string_of_typ rt ^ " in " ^ string_of_expr ex))
+              else raise(Failure ("illegal dimension access " ^ string_of_expr el))
+          | _ ->*) check_assign lt rt (Failure ("illegal assignment " ^ 
+                  string_of_typ lt ^ " = " ^ string_of_typ rt ^ " in " ^ string_of_expr ex))
+
 
       | Call(fdectr, actuals) as call ->
          (* TODO: find out the correct signature of fd according to the calling context
@@ -228,13 +189,7 @@ Arr(Arr(Pix)
            if not fd.checked then check_func fd else ();
            fd.typ
       (*TODO: check array access*) 
-      | EleAt(arr, idx) -> 
-            let rec checkarrtyp = function
-              e -> expr locals e
-            | e1 :: e2 -> if expr locals e1 == expr local e2 then expr locals e1
-            | e1 :: e2 :: e -> if expr locals e1 == expr local e2 then checkarrtyp e2 :: e 
-            | _-> raise(Failure ("illegal array type " ^ string_of_expr el))
-              in checkarrtyp el
+      | EleAt(arr, idx) -> Int
       (*TODO: check property access*)
       | PropAcc(e, prp) -> Int
       (*TODO: check anonymous function*)
@@ -257,9 +212,10 @@ Arr(Arr(Pix)
         List.fold_left (fun m initd -> match initd with InitDectr(d, e) ->
             let tt = check_vdef locals t initd in
             let id = id_of_dectr d in
-            if not (StringMap.mem id locals) then StringMap.add id tt locals
+            if not (StringMap.mem id locals) then StringMap.add id (*fst initd*)tt locals
             else raise (Failure ("duplicate local " ^ id))
         ) locals initds
+
 
     and check_block locals funct = function
         [Return _ as s] -> check_stmt locals funct s
@@ -293,7 +249,7 @@ Arr(Arr(Pix)
             (fun initd -> match initd with InitDectr(d, e) ->
                 let tt = check_vdef StringMap.empty t initd in
                 let id = id_of_dectr d in
-                if not (Hashtbl.mem globals id) then Hashtbl.add globals id tt
+                if not (Hashtbl.mem globals id) then Hashtbl.add globals id (*fst initd*)tt
                 else raise (Failure ("duplicate global " ^ id)))
             initds
       | stmt -> check_stmt StringMap.empty Int stmt
@@ -302,3 +258,4 @@ Arr(Arr(Pix)
     (*List.iter check_func functions*)
     List.iter check_global_stmt (List.rev statements)
     (* TODO: Check for remaining functions not called by anyone?*)
+
