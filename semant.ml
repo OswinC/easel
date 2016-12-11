@@ -29,7 +29,9 @@ let check (functions, statements) =
   (* check that rvalue type can be assigned to lvalue type *)
   let check_assign lvalt rvalt err =
         (* TODO: pix accepts assignment with both Int and Pix *)
-      if lvalt == rvalt then lvalt else raise err
+      if lvalt == rvalt then lvalt
+      else if (lvalt == Pix && rvalt == Int) then lvalt
+      else raise err
   in
 
   (* Check and build function table *)
