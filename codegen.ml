@@ -155,9 +155,10 @@ let translate (functions, statements) =
 	  | A.FloatLit f -> L.const_float float_t f
 	  | A.BoolLit b -> L.const_int i1_t (if b then 1 else 0)
 	  (*| A.ArrLit a -> (* TODO: ArrLit *)*)
-	  | A.PixLit (r_e, g_e, b_e) -> let r_v = expr env r_e
+	  | A.PixLit (r_e, g_e, b_e, a_e) -> let r_v = expr env r_e
                                     and g_v = expr env g_e
-                                    and b_v = expr env b_e in
+                                    and b_v = expr env b_e
+                                    and a_v = expr env a_e in
                                     let shift_r = L.const_int i32_t 16777216 (* left shift for 24 bits *)
                                     and shift_g = L.const_int i32_t 65536 (* left shift for 16 bits *)
                                     and shift_b = L.const_int i32_t 256 in (* left shift for 8 bits *)
@@ -165,7 +166,8 @@ let translate (functions, statements) =
                                     and g_v' = L.build_mul g_v shift_g "tmp" env.builder
                                     and b_v' = L.build_mul b_v shift_b "tmp" env.builder in
                                     let p_v' = L.build_add r_v' g_v' "tmp" env.builder in
-                                        L.build_add p_v' b_v' "tmp" env.builder
+                                    let p_v'' = L.build_add p_v' b_v' "tmp" env.builder in
+                                        L.build_add p_v'' a_v "tmp" env.builder
           | A.Id id -> L.build_load (fst (lookup env id)) id env.builder
 	  | A.Noexpr -> L.const_int i32_t 0
 	  | A.Binop (e1, op, e2) -> 

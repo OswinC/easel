@@ -18,7 +18,7 @@ and expr =
   | FloatLit of float
   | BoolLit of bool
   | ArrLit of expr list
-  | PixLit of expr * expr * expr
+  | PixLit of expr * expr * expr * expr
   | Id of string
   | Binop of expr * op * expr
   | Unop of uop * expr
@@ -90,7 +90,7 @@ and string_of_expr = function
   | FloatLit(f) -> string_of_float f
   | BoolLit(b) -> string_of_bool b
   | ArrLit(el) -> "[" ^ String.concat ", " (List.map string_of_expr el) ^ "]"
-  | PixLit(e1, e2, e3) -> "{" ^ string_of_expr e1 ^ ", " ^ string_of_expr e2 ^ ", " ^ string_of_expr e3 ^ "}"
+  | PixLit(e1, e2, e3, e4) -> "{" ^ string_of_expr e1 ^ ", " ^ string_of_expr e2 ^ ", " ^ string_of_expr e3 ^  ", " ^ string_of_expr e4 ^ "}"
   | Id(s) -> s
   | Binop(e1, o, e2) ->
       string_of_expr e1 ^ " " ^ string_of_op o ^ " " ^ string_of_expr e2
