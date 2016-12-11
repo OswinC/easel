@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
+#include <time.h>
 /*#include <GL/glew.h>*/
 #ifdef __APPLE__
 #  include <GLUT/glut.h>
@@ -12,6 +13,9 @@
 int do_draw(int *canvas, int w, int h, int x, int y);
 void render(void);
 void myglinit(void);
+double rando();
+double randos();
+
 
 int *easel;
 int W, H;
@@ -96,3 +100,12 @@ void myglinit() {
     glClear(GL_COLOR_BUFFER_BIT);
 } 
 
+double randos(int seed) {
+    srand(seed);
+    double r = rand();
+    return (double) (r/RAND_MAX); 
+}
+
+double rando() {
+    return randos(time(NULL));
+}

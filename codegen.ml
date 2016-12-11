@@ -1,5 +1,5 @@
 (* easel code generation *)
-
+open Random
 module L = Llvm
 module A = Ast 
 module StringMap = Map.Make(String)
@@ -119,18 +119,30 @@ let translate (functions, statements) =
     let extfunc_do_draw = L.declare_function "do_draw" extfunc_do_draw_t the_module in 
     let extfunc_printf_t = L.var_arg_function_type i32_t [| L.pointer_type i8_t |] in
     let extfunc_printf = L.declare_function "printf" extfunc_printf_t the_module in
+
     let extfunc_pow_t = L.function_type float_t [| float_t; float_t |] in
-    let extfunc_pow = L.declare_function "llvm.pow.f64" extfunc_pow_t the_module in
-    let pow_call b e n bdr = L.build_call extfunc_pow [|b; e|] n bdr in
-    let extfunc_powi_t = L.function_type float_t [| float_t; i32_t |] in
-    let extfunc_powi = L.declare_function "llvm.powi.f64" extfunc_powi_t the_module in
-    let powi_call b e n bdr = L.build_call extfunc_powi [|b; e|] n bdr in
+    let extfunc_pow = L.declare_function "pow" extfunc_pow_t the_module in
+    let pow_call b e n bdr = L.build_call extfunc_pow [|b; e|] "pow_call" bdr in
+
     let extfunc_sin_t = L.var_arg_function_type float_t [|float_t|] in 
     let extfunc_sin = L.declare_function "sin" extfunc_sin_t the_module in
     let extfunc_cos_t = L.var_arg_function_type float_t [|float_t|] in 
     let extfunc_cos = L.declare_function "cos" extfunc_cos_t the_module in
     let extfunc_tan_t = L.var_arg_function_type float_t [|float_t|] in 
     let extfunc_tan = L.declare_function "tan" extfunc_tan_t the_module in 
+
+    (* rand and log *)
+    let extfunc_log_t = L.var_arg_function_type float_t [|float_t|] in 
+    let extfunc_log = L.declare_function "log" extfunc_log_t the_module in
+
+    let extfunc_rand_t = L.function_type float_t [||] in 
+    let extfunc_rand = L.declare_function "rando" extfunc_rand_t the_module in
+
+    let extfunc_rand_t = L.function_type float_t [|i32_t|] in 
+    let extfunc_rands = L.declare_function "randos" extfunc_rand_t the_module in
+
+
+
 
 	let lookup env n = try StringMap.find n env.locals
 					 with Not_found -> Hashtbl.find globals n in 
@@ -179,12 +191,14 @@ let translate (functions, statements) =
             | A.Div -> build_op_by_type  L.build_fdiv L.build_sdiv
             | A.Mod -> build_op_by_type  L.build_frem L.build_srem
             | A.Pow -> (match (typ1, typ2) with
-                        ("double", "i32") -> powi_call
-                        | ("double", "double") -> pow_call
+                          ("double", "double") -> pow_call
+                        | ("double", "i32") -> (fun e1 e2 n bdr -> let e2' = L.build_sitofp e2 float_t "tmp" bdr in
+                                                pow_call e1 e2' n bdr)
                         | ("i32", "double") -> (fun e1 e2 n bdr -> let e1' = L.build_sitofp e1 float_t "tmp" bdr in
-                                                pow_call e1' e2 "tmp" bdr)
-                        | ("i32", "i32") -> (fun e1 e2 n bdr -> let e1' = L.build_sitofp e1 float_t "tmp" bdr in
-                                                powi_call e1' e2 "tmp" bdr)
+                                                pow_call e1' e2 n bdr)
+                        | ("i32", "i32") ->    (fun e1 e2 n bdr -> let e1' = L.build_sitofp e1 float_t "tmp" bdr in
+                                                                   let e2' = L.build_sitofp e2 float_t "tmp" bdr in
+                                                pow_call e1' e2' n bdr)
                         )
             | A.Equal -> build_op_by_type (L.build_fcmp L.Fcmp.Oeq) (L.build_icmp L.Icmp.Eq)
             | A.Neq -> build_op_by_type (L.build_fcmp L.Fcmp.One) (L.build_icmp L.Icmp.Ne)
@@ -281,6 +295,22 @@ let translate (functions, statements) =
          L.build_call extfunc_cos [|expr env e|] "cos" env.builder
       | A.Call (A.Id("tan"), [e]) ->
          L.build_call extfunc_tan [|expr env e|] "tan" env.builder
+      | A.Call (A.Id("log"), [b; e]) ->
+         let log_it x = L.build_call extfunc_log [|x|] "tmp_log" env.builder in
+         let promote x = (let ex = expr env x in
+                          let typ = L.string_of_lltype (L.type_of ex) in
+                           (match typ with 
+                            "double" -> log_it ex
+                          | "i32" -> (let pex = L.build_sitofp ex float_t "tmp" env.builder in
+                                     log_it pex))) in
+         let base = promote b
+         and sol = promote e in
+         L.build_fdiv (sol) (base) "log" env.builder
+
+      | A.Call (A.Id("rand"), []) -> L.build_call extfunc_rand [||] "rand_call" env.builder
+      | A.Call (A.Id("rand"), [e]) -> L.build_call extfunc_rands [|(expr env e)|] "rand_call" env.builder
+
+
       | A.Call (A.Id(func), act) -> 
           let (fdef, fdecl) = StringMap.find func function_decls in 
           let actuals = List.rev (List.map (expr env) (List.rev act)) in
