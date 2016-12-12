@@ -192,8 +192,19 @@ let check (functions, statements) =
            fd.typ
       (*TODO: check array access*) 
       | EleAt(arr, idx) -> Int
-      (*TODO: check property access*)
-      | PropAcc(e, prp) -> Int
+      | PropAcc(e, prp) -> 
+            (* Find the type of a given thing *)
+            let t = expr locals e in
+            (* Make sure the property works for the type *)
+            (match t with 
+              Pix -> (match prp with
+                             "red" | "green" | "blue" -> Int
+                            | _ -> raise(Failure ("invalid pixel property " ^ prp))) 
+            | Arr(_) -> (match prp with
+                             "size" -> Int
+                            | _ -> raise(Failure ("invalid array property " ^ prp)))
+            | _ -> raise(Failure ("type " ^ string_of_typ t ^ "has no valid property " ^ prp)))
+
       (*TODO: check anonymous function*)
       | AnonFunc(fdecl) -> Func(Void, [])
 
