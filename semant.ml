@@ -35,10 +35,14 @@ let check (functions, statements) =
 
   (* Check and build function table *)
   let functions =
-        { typ = Void; fname = "draw"; formals = [(Pix, DecArr(DecArr(DecId("canvas"), 0), 0)); (Float, DecId("x")); (Float, DecId("y"))];
+        { typ = Void; fname = "draw_default"; formals = [];
           body = []; checked = true }::
-        { typ = Void; fname = "drawout"; formals = [(Pix, DecArr(DecArr(DecId("canvas"), 0), 0))];
+        { typ = Void; fname = "do_draw"; formals = [(Pix, DecArr(DecArr(DecId("canvas"), 0), 0))];
         body = []; checked = true }::
+        { typ = Void; fname = "draw"; formals = [(Pix, DecArr(DecArr(DecId("canvas"), 0), 0))];
+        body = []; checked = true }::
+      { typ = Float; fname = "pow"; formals = [(Float, DecId("x")); (Float, DecId("y"))];
+          body = []; checked = true }::
       { typ = Float; fname = "tan"; formals = [(Float, DecId("x"))];
           body = []; checked = true }::
       { typ = Float; fname = "sin"; formals = [(Float, DecId("x"))];
@@ -47,8 +51,11 @@ let check (functions, statements) =
           body = []; checked = true }::
       { typ = Float; fname = "log"; formals= [(Float, DecId("base")); (Float,  DecId("value"))];
           body = []; checked = true }::
-      { typ = Float; fname = "rand"; formals = [];
+      { typ = Float; fname = "rando"; formals = [];
+          body = []; checked = true }:: 
+      { typ = Float; fname = "randos"; formals = [(Int, DecId("seed"))];
           body = []; checked = true }:: functions
+
   in
 
     let rec typ_of_bind = function
