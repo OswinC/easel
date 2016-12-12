@@ -28,7 +28,6 @@ let check (functions, statements) =
 
   (* check that rvalue type can be assigned to lvalue type *)
   let check_assign lvalt rvalt err =
-        (* TODO: pix accepts assignment with both Int and Pix *)
       if lvalt == rvalt then lvalt
       else if (lvalt == Pix && rvalt == Int) then lvalt
       else raise err
@@ -129,7 +128,6 @@ let check (functions, statements) =
        * int a[4]; a = [1,2,3,4]; *)
       | ArrLit el -> Arr(Int)
 
-
       | Id s -> type_of_identifier locals s
       | Binop(e1, op, e2) as e -> let t1 = expr locals e1 and t2 = expr locals e2 in
         (match op with
@@ -191,7 +189,17 @@ let check (functions, statements) =
            if not fd.checked then check_func fd else ();
            fd.typ
       (*TODO: check array access*) 
-      | EleAt(arr, idx) -> Int
+      | EleAt(arr, _) as ele-> (match arr with
+                           EleAt(iarr, _) -> let iat = expr locals iarr in
+                                             (match iat with
+                                               Arr(Arr(arr_t)) -> arr_t
+                                             | _ -> raise(Failure (string_of_expr ele ^ " is not a valid array")))
+                         | _ -> let iat = expr locals arr in
+                                             (match iat with
+                                               Arr(Arr(arr_t)) -> Arr(arr_t)
+                                             | Arr(arr_t) -> arr_t
+                                             | _ -> raise(Failure (string_of_expr ele ^ " is not a valid array"))))
+                           
       | PropAcc(e, prp) -> 
             (* Find the type of a given thing *)
             let t = expr locals e in
