@@ -168,7 +168,7 @@ let translate (functions, statements) =
                                     let p_v' = L.build_add r_v' g_v' "tmp" env.builder in
                                     let p_v'' = L.build_add p_v' b_v' "tmp" env.builder in
                                         L.build_add p_v'' a_v "tmp" env.builder
-          | A.Id id -> L.build_load (fst (lookup env id)) id env.builder
+      | A.Id id -> L.build_load (fst (lookup env id)) id env.builder
 	  | A.Noexpr -> L.const_int i32_t 0
 	  | A.Binop (e1, op, e2) -> 
             let exp1 = expr env e1
@@ -220,15 +220,16 @@ let translate (functions, statements) =
 	    	  A.Neg -> L.build_neg exp "tmp" env.builder
 	        | A.Not -> L.build_not exp "tmp" env.builder
                 | A.Inc -> (match typ with
-                    "double" -> expr env (A.Assign(e, A.Binop(e, A.Add, A.FloatLit(1.0))))
-                  | _ -> expr env (A.Assign(e, A.Binop(e, A.Add, A.IntLit(1))))
+      (*| A.Id id -> L.build_load (fst (lookup env id)) id env.builder*)
+                    "double" -> ignore(expr env (A.Assign(e, A.Binop(e, A.Add, A.FloatLit(1.0))))); exp
+                  | _ -> ignore(expr env (A.Assign(e, A.Binop(e, A.Add, A.IntLit(1))))); exp
                 )
                 | A.Dec -> (match typ with
-                    "double" -> expr env (A.Assign(e, A.Binop(e, A.Sub, A.FloatLit(1.0))))
-                  | _ -> expr env (A.Assign(e, A.Binop(e, A.Sub, A.IntLit(1))))
+                    "double" -> ignore(expr env (A.Assign(e, A.Binop(e, A.Sub, A.FloatLit(1.0))))); exp
+                  | _ -> ignore(expr env (A.Assign(e, A.Binop(e, A.Sub, A.IntLit(1))))); exp
 	        )
-                | A.UMult -> expr env (A.Assign(e, A.Binop(e, A.Mult, e)))
-	        | A.UDiv -> expr env(A.Assign(e, A.Binop(e, A.Div, e)))
+                | A.UMult -> ignore(expr env (A.Assign(e, A.Binop(e, A.Mult, e)))); exp
+            | A.UDiv -> ignore(expr env(A.Assign(e, A.Binop(e, A.Div, e)))); exp
                 (*| A.UPow -> expr env(A.Assign(e, A.Binop(e, A.Pow, e)))*)
 	        ) 
 	  (*TODO: AnonFunc, finish Call *)
@@ -333,7 +334,7 @@ let translate (functions, statements) =
         A.Block sl -> List.fold_left stmt env sl
       | A.Expr e -> ignore (expr env e); env
       | A.Vdef (t, initds) ->
-        List.fold_left (local_var t) env initds
+        List.fold_left (local_var t) env (List.rev initds)
       | A.If (pred, then_stmt, else_stmt) ->
           let bool_val = expr env pred in 
 	  let merge_bb = L.append_block context "merge" env.the_func in
@@ -389,7 +390,7 @@ let translate (functions, statements) =
 
     let global_stmt env = function
         (* initds: init_dectr list *)
-          A.Vdef(t, initds) -> List.iter (global_var t) initds; env
+          A.Vdef(t, initds) -> List.iter (global_var t) (List.rev initds); env
         | st -> stmt env st
     in
 
