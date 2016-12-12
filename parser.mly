@@ -136,7 +136,7 @@ assign_expr:
   | anonfunc                        { $1 }
   | LBRCK actuals_list RBRCK        { ArrLit(List.rev $2) }
   | LBRCK RBRCK                     { ArrLit([]) }
-  | LBRACE expr COMMA expr COMMA expr RBRACE      { PixLit($2, $4, $6) }
+  | LBRACE expr COMMA expr COMMA expr COMMA expr RBRACE { PixLit($2, $4, $6, $8) }
   | postfix_expr ASSIGN assign_expr { Assign($1, $3) }
 
 logic_or_expr:

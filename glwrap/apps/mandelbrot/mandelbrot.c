@@ -22,7 +22,7 @@ int W, H;
 int main(int argc, char **argv) {
     // width and height of the window
     W = 960;
-    H = 960;
+    H = 720;
 
     // create a char buffer, 3 bytes per pixel of the window
     easel = calloc(W * H * 3, sizeof(unsigned char));

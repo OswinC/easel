@@ -1,5 +1,5 @@
 (* easel code generation *)
-
+open Random
 module L = Llvm
 module A = Ast 
 module StringMap = Map.Make(String)
@@ -119,18 +119,30 @@ let translate (functions, statements) =
     let extfunc_do_draw = L.declare_function "do_draw" extfunc_do_draw_t the_module in 
     let extfunc_printf_t = L.var_arg_function_type i32_t [| L.pointer_type i8_t |] in
     let extfunc_printf = L.declare_function "printf" extfunc_printf_t the_module in
+
     let extfunc_pow_t = L.function_type float_t [| float_t; float_t |] in
-    let extfunc_pow = L.declare_function "llvm.pow.f64" extfunc_pow_t the_module in
-    let pow_call b e n bdr = L.build_call extfunc_pow [|b; e|] n bdr in
-    let extfunc_powi_t = L.function_type float_t [| float_t; i32_t |] in
-    let extfunc_powi = L.declare_function "llvm.powi.f64" extfunc_powi_t the_module in
-    let powi_call b e n bdr = L.build_call extfunc_powi [|b; e|] n bdr in
+    let extfunc_pow = L.declare_function "pow" extfunc_pow_t the_module in
+    let pow_call b e n bdr = L.build_call extfunc_pow [|b; e|] "pow_call" bdr in
+
     let extfunc_sin_t = L.var_arg_function_type float_t [|float_t|] in 
     let extfunc_sin = L.declare_function "sin" extfunc_sin_t the_module in
     let extfunc_cos_t = L.var_arg_function_type float_t [|float_t|] in 
     let extfunc_cos = L.declare_function "cos" extfunc_cos_t the_module in
     let extfunc_tan_t = L.var_arg_function_type float_t [|float_t|] in 
     let extfunc_tan = L.declare_function "tan" extfunc_tan_t the_module in 
+
+    (* rand and log *)
+    let extfunc_log_t = L.var_arg_function_type float_t [|float_t|] in 
+    let extfunc_log = L.declare_function "log" extfunc_log_t the_module in
+
+    let extfunc_rand_t = L.function_type float_t [||] in 
+    let extfunc_rand = L.declare_function "rando" extfunc_rand_t the_module in
+
+    let extfunc_rand_t = L.function_type float_t [|i32_t|] in 
+    let extfunc_rands = L.declare_function "randos" extfunc_rand_t the_module in
+
+
+
 
 	let lookup env n = try StringMap.find n env.locals
 					 with Not_found -> Hashtbl.find globals n in 
@@ -143,9 +155,10 @@ let translate (functions, statements) =
 	  | A.FloatLit f -> L.const_float float_t f
 	  | A.BoolLit b -> L.const_int i1_t (if b then 1 else 0)
 	  (*| A.ArrLit a -> (* TODO: ArrLit *)*)
-	  | A.PixLit (r_e, g_e, b_e) -> let r_v = expr env r_e
+	  | A.PixLit (r_e, g_e, b_e, a_e) -> let r_v = expr env r_e
                                     and g_v = expr env g_e
-                                    and b_v = expr env b_e in
+                                    and b_v = expr env b_e
+                                    and a_v = expr env a_e in
                                     let shift_r = L.const_int i32_t 16777216 (* left shift for 24 bits *)
                                     and shift_g = L.const_int i32_t 65536 (* left shift for 16 bits *)
                                     and shift_b = L.const_int i32_t 256 in (* left shift for 8 bits *)
@@ -153,8 +166,9 @@ let translate (functions, statements) =
                                     and g_v' = L.build_mul g_v shift_g "tmp" env.builder
                                     and b_v' = L.build_mul b_v shift_b "tmp" env.builder in
                                     let p_v' = L.build_add r_v' g_v' "tmp" env.builder in
-                                        L.build_add p_v' b_v' "tmp" env.builder
-          | A.Id id -> L.build_load (fst (lookup env id)) id env.builder
+                                    let p_v'' = L.build_add p_v' b_v' "tmp" env.builder in
+                                        L.build_add p_v'' a_v "tmp" env.builder
+      | A.Id id -> L.build_load (fst (lookup env id)) id env.builder
 	  | A.Noexpr -> L.const_int i32_t 0
 	  | A.Binop (e1, op, e2) -> 
             let exp1 = expr env e1
@@ -179,12 +193,14 @@ let translate (functions, statements) =
             | A.Div -> build_op_by_type  L.build_fdiv L.build_sdiv
             | A.Mod -> build_op_by_type  L.build_frem L.build_srem
             | A.Pow -> (match (typ1, typ2) with
-                        ("double", "i32") -> powi_call
-                        | ("double", "double") -> pow_call
+                          ("double", "double") -> pow_call
+                        | ("double", "i32") -> (fun e1 e2 n bdr -> let e2' = L.build_sitofp e2 float_t "tmp" bdr in
+                                                pow_call e1 e2' n bdr)
                         | ("i32", "double") -> (fun e1 e2 n bdr -> let e1' = L.build_sitofp e1 float_t "tmp" bdr in
-                                                pow_call e1' e2 "tmp" bdr)
-                        | ("i32", "i32") -> (fun e1 e2 n bdr -> let e1' = L.build_sitofp e1 float_t "tmp" bdr in
-                                                powi_call e1' e2 "tmp" bdr)
+                                                pow_call e1' e2 n bdr)
+                        | ("i32", "i32") ->    (fun e1 e2 n bdr -> let e1' = L.build_sitofp e1 float_t "tmp" bdr in
+                                                                   let e2' = L.build_sitofp e2 float_t "tmp" bdr in
+                                                pow_call e1' e2' n bdr)
                         )
             | A.Equal -> build_op_by_type (L.build_fcmp L.Fcmp.Oeq) (L.build_icmp L.Icmp.Eq)
             | A.Neq -> build_op_by_type (L.build_fcmp L.Fcmp.One) (L.build_icmp L.Icmp.Ne)
@@ -204,15 +220,16 @@ let translate (functions, statements) =
 	    	  A.Neg -> L.build_neg exp "tmp" env.builder
 	        | A.Not -> L.build_not exp "tmp" env.builder
                 | A.Inc -> (match typ with
-                    "double" -> expr env (A.Assign(e, A.Binop(e, A.Add, A.FloatLit(1.0))))
-                  | _ -> expr env (A.Assign(e, A.Binop(e, A.Add, A.IntLit(1))))
+      (*| A.Id id -> L.build_load (fst (lookup env id)) id env.builder*)
+                    "double" -> ignore(expr env (A.Assign(e, A.Binop(e, A.Add, A.FloatLit(1.0))))); exp
+                  | _ -> ignore(expr env (A.Assign(e, A.Binop(e, A.Add, A.IntLit(1))))); exp
                 )
                 | A.Dec -> (match typ with
-                    "double" -> expr env (A.Assign(e, A.Binop(e, A.Sub, A.FloatLit(1.0))))
-                  | _ -> expr env (A.Assign(e, A.Binop(e, A.Sub, A.IntLit(1))))
+                    "double" -> ignore(expr env (A.Assign(e, A.Binop(e, A.Sub, A.FloatLit(1.0))))); exp
+                  | _ -> ignore(expr env (A.Assign(e, A.Binop(e, A.Sub, A.IntLit(1))))); exp
 	        )
-                | A.UMult -> expr env (A.Assign(e, A.Binop(e, A.Mult, e)))
-	        | A.UDiv -> expr env(A.Assign(e, A.Binop(e, A.Div, e)))
+                | A.UMult -> ignore(expr env (A.Assign(e, A.Binop(e, A.Mult, e)))); exp
+            | A.UDiv -> ignore(expr env(A.Assign(e, A.Binop(e, A.Div, e)))); exp
                 (*| A.UPow -> expr env(A.Assign(e, A.Binop(e, A.Pow, e)))*)
 	        ) 
 	  (*TODO: AnonFunc, finish Call *)
@@ -281,6 +298,22 @@ let translate (functions, statements) =
          L.build_call extfunc_cos [|expr env e|] "cos" env.builder
       | A.Call (A.Id("tan"), [e]) ->
          L.build_call extfunc_tan [|expr env e|] "tan" env.builder
+      | A.Call (A.Id("log"), [b; e]) ->
+         let log_it x = L.build_call extfunc_log [|x|] "tmp_log" env.builder in
+         let promote x = (let ex = expr env x in
+                          let typ = L.string_of_lltype (L.type_of ex) in
+                           (match typ with 
+                            "double" -> log_it ex
+                          | "i32" -> (let pex = L.build_sitofp ex float_t "tmp" env.builder in
+                                     log_it pex))) in
+         let base = promote b
+         and sol = promote e in
+         L.build_fdiv (sol) (base) "log" env.builder
+
+      | A.Call (A.Id("rand"), []) -> L.build_call extfunc_rand [||] "rand_call" env.builder
+      | A.Call (A.Id("rand"), [e]) -> L.build_call extfunc_rands [|(expr env e)|] "rand_call" env.builder
+
+
       | A.Call (A.Id(func), act) -> 
           let (fdef, fdecl) = StringMap.find func function_decls in 
           let actuals = List.rev (List.map (expr env) (List.rev act)) in
@@ -301,7 +334,7 @@ let translate (functions, statements) =
         A.Block sl -> List.fold_left stmt env sl
       | A.Expr e -> ignore (expr env e); env
       | A.Vdef (t, initds) ->
-        List.fold_left (local_var t) env initds
+        List.fold_left (local_var t) env (List.rev initds)
       | A.If (pred, then_stmt, else_stmt) ->
           let bool_val = expr env pred in 
 	  let merge_bb = L.append_block context "merge" env.the_func in
@@ -357,7 +390,7 @@ let translate (functions, statements) =
 
     let global_stmt env = function
         (* initds: init_dectr list *)
-          A.Vdef(t, initds) -> List.iter (global_var t) initds; env
+          A.Vdef(t, initds) -> List.iter (global_var t) (List.rev initds); env
         | st -> stmt env st
     in
 
