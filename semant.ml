@@ -28,8 +28,8 @@ let check (functions, statements) =
 
   (* check that rvalue type can be assigned to lvalue type *)
   let check_assign lvalt rvalt err =
-      if lvalt == rvalt then lvalt
-      else if (lvalt == Pix && rvalt == Int) then lvalt
+      if lvalt = rvalt then lvalt
+      else if (lvalt = Pix && rvalt = Int) then lvalt
       else raise err
   in
 
@@ -111,29 +111,32 @@ let check (functions, statements) =
         | DecArr(DecArr(DecId(_),len1),len2)-> [len1;len2]
     in
 
-
     (* Return the type of an expression or throw an exception *)
     let rec expr locals = function
         IntLit _ -> Int
       | FloatLit _ -> Float
       | BoolLit _ -> Bool
-      (*TODO: check for exact 3 expressions in el, and all are of Int type*)
-      | PixLit [e1; e2; e3] as el -> (*match el with [e1; e2; e3] -> *)
-        let t1 = expr locals e1 and t2 = expr locals e2 and t3 = expr locals e3 in
-            if (t1 = Int && t2 = Int && t3 = Int) then Pix 
-	    else raise(Failure ("illegal pix value " ^ string_of_expr el));
-            ;
-
+      | PixLit(el)-> (*match el with [e1; e2; e3] -> *)
+        (match el with
+          [e1; e2; e3] -> let t1 = expr locals e1 and t2 = expr locals e2 and t3 = expr locals e3 in
+                          if (t1 = Int && t2 = Int && t3 = Int) then Pix 
+                          else raise(Failure ("illegal pix value [" ^ string_of_expr e1 ^ string_of_expr e2 ^ string_of_expr e3 ^ "]"))
+        | _ -> raise(Failure("Incorrect amount of arguments to use a pix literal")))
       (* TODO: check array type 
        * int a[4]; a = [1,2,3,4]; *)
-      | ArrLit el -> Arr(Int)
-
+      | ArrLit(el) as arrl -> let t = expr locals (List.hd el) in
+                              let rec tm typ = (function
+                                  [] -> Arr(typ)
+                                | _ as l -> let h = List.hd l in
+                                            if typ = (expr locals h) then tm typ (List.tl l)
+                                            else raise(Failure ("Array types in array literal " ^ string_of_expr arrl ^ " do not match"))) in
+                              tm t el
+                           
       | Id s -> type_of_identifier locals s
       | Binop(e1, op, e2) as e -> let t1 = expr locals e1 and t2 = expr locals e2 in
         (match op with
             Add | Sub | Mult | Div when t1 = Int && t2 = Int -> Int
-          (*TODO: check power operation*)
-          | Pow when (t1 = Int && t2 = Int) || (t1 = Int && t2 = Float) -> Float
+          | Pow when (t1 = Int || t1 = Float) && (t2 = Int || t2 = Float) -> Float
           | Equal | Neq when t1 = t2 -> Bool
           | Less | Leq | Greater | Geq when t1 = Int && t2 = Int -> Bool
           | And | Or when t1 = Bool && t2 = Bool -> Bool
@@ -149,6 +152,7 @@ let check (functions, statements) =
           | Inc | Dec when t = Int -> Int
           (*TODO: check **, //, ^^ *)
           | UMult | UDiv | UPow when t = Int -> Int
+          | UPow when t = Int or t = Float -> Float 
           | _ -> raise (Failure ("illegal unary operator " ^ string_of_uop op ^
            string_of_typ t ^ " in " ^ string_of_expr ex))
         )
@@ -188,7 +192,6 @@ let check (functions, statements) =
              fd.formals actuals;
            if not fd.checked then check_func fd else ();
            fd.typ
-      (*TODO: check array access*) 
       | EleAt(arr, _) as ele-> (match arr with
                            EleAt(iarr, _) -> let iat = expr locals iarr in
                                              (match iat with
@@ -215,6 +218,7 @@ let check (functions, statements) =
 
       (*TODO: check anonymous function*)
       | AnonFunc(fdecl) -> Func(Void, [])
+      | _ as unk -> raise(Failure (string_of_expr unk ^ " is an unknown expression type"))
 
     and check_func func =
         (* TODO: check formals for being void and duplicate *)
