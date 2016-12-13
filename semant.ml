@@ -129,8 +129,6 @@ let check (functions, statements) =
                           if (t1 = Int && t2 = Int && t3 = Int) then Pix 
                           else raise(Failure ("illegal pix value [" ^ string_of_expr e1 ^ string_of_expr e2 ^ string_of_expr e3 ^ "]"))
         | _ -> raise(Failure("Incorrect amount of arguments to use a pix literal")))
-      (* TODO: check array type 
-       * int a[4]; a = [1,2,3,4]; *)
       | ArrLit(el) as arrl -> let t = expr locals (List.hd el) in
                               let rec tm typ = (function
                                   [] -> Arr(typ)
@@ -158,7 +156,7 @@ let check (functions, statements) =
           (*TODO: check ++ and -- *)
           | Inc | Dec when t = Int -> Int
           (*TODO: check **, //, ^^ *)
-          | UMult | UDiv | UPow when t = Int -> Int
+          | UMult | UDiv when t = Int -> Int
           | UPow when t = Int or t = Float -> Float 
           | _ -> raise (Failure ("illegal unary operator " ^ string_of_uop op ^
            string_of_typ t ^ " in " ^ string_of_expr ex))
