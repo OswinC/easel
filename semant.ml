@@ -29,7 +29,7 @@ let check (functions, statements) =
   (* check that rvalue type can be assigned to lvalue type *)
   let check_assign lvalt rvalt err =
       if lvalt = rvalt then lvalt
-      else if (lvalt = Pix && rvalt = Int) then lvalt
+      else if ((lvalt = Pix && rvalt = Int) || (lvalt = Arr(Pix) && rvalt = Arr(Int)) || (lvalt = Arr(Arr(Pix)) && rvalt = Arr(Arr(Int)))) then lvalt
       else raise err
   in
 
@@ -37,9 +37,9 @@ let check (functions, statements) =
   let functions =
         { typ = Void; fname = "draw_default"; formals = [];
           body = []; checked = true }::
-        { typ = Void; fname = "do_draw"; formals = [(Pix, DecArr(DecArr(DecId("canvas"), 0), 0))];
+        { typ = Void; fname = "do_draw"; formals = [(Pix, DecArr(DecArr(DecId("canvas"), 0), 0)); (Int, DecId("w")); (Int, DecId("h")); (Int, DecId("x")); (Int, DecId("y"))];
         body = []; checked = true }::
-        { typ = Void; fname = "draw"; formals = [(Pix, DecArr(DecArr(DecId("canvas"), 0), 0))];
+        { typ = Void; fname = "draw"; formals = [(Pix, DecArr(DecArr(DecId("canvas"), 0), 0)); (Int, DecId("w")); (Int, DecId("h"))];
         body = []; checked = true }::
       { typ = Float; fname = "pow"; formals = [(Float, DecId("x")); (Float, DecId("y"))];
           body = []; checked = true }::
@@ -64,7 +64,7 @@ let check (functions, statements) =
     in
 
     let func_sign fd =
-        string_of_typ fd.typ ^ fd.fname ^
+        fd.fname ^
         List.fold_left (fun s fm -> s ^ string_of_typ (typ_of_bind fm)) "" fd.formals
     in
 
@@ -151,10 +151,13 @@ let check (functions, statements) =
         )
       | Unop(op, e) as ex -> let t = expr locals e in
       (match op with
-            Neg when t = Int -> Int
+            Neg -> (match t with 
+                        Int -> Int
+                      | Float -> Float)
           | Not when t = Bool -> Bool
-          (*TODO: check ++ and -- *)
-          | Inc | Dec when t = Int -> Int
+          | Inc | Dec -> (match t with 
+                        Int -> Int
+                      | Float -> Float)
           (*TODO: check **, //, ^^ *)
           | UMult | UDiv when t = Int -> Int
           | UPow when t = Int or t = Float -> Float 
@@ -165,28 +168,20 @@ let check (functions, statements) =
       | Assign(var, e) as ex -> 
           let lt = type_of_identifier locals (id_of_lval var)
             and rt = expr locals e in
-            (* TODO: check that var's dimension is <= lt *)
-           (* match var with
-            EleAt(Id(a), length) -> 
-            let arrlen_in_map = fst (length_of_arrdectr (snd (StringMap.find locals a))) in 
-              if length < arrlen_in_map then check_assign lt rt (Failure ("illegal assignment " ^ 
-                  string_of_typ lt ^ " = " ^ string_of_typ rt ^ " in " ^ string_of_expr ex))
-              else raise(Failure ("illegal dimension access " ^ string_of_expr el))
-          | EleAt(EleAt(Id(a),length1),length2) -> 
-            let arrlen1_in_map = fst (length_of_arrdectr (snd (StringMap.find locals a)))
-              and arrlen2_in_map = snd (length_of_arrdectr (snd (StringMap.find locals a))) in
-              if length1 < arrlen1_in_map && length2 < arrlen2_in_map then check_assign lt rt (Failure ("illegal assignment " ^ 
-                  string_of_typ lt ^ " = " ^ string_of_typ rt ^ " in " ^ string_of_expr ex))
-              else raise(Failure ("illegal dimension access " ^ string_of_expr el))
-          | _ ->*) check_assign lt rt (Failure ("illegal assignment " ^ 
+                  check_assign lt rt (Failure ("illegal assignment " ^ 
                   string_of_typ lt ^ " = " ^ string_of_typ rt ^ " in " ^ string_of_expr ex))
 
 
       | Call(fdectr, actuals) as call ->
          (* TODO: find out the correct signature of fd according to the calling context
           * and then use it to fetch fd *)
-         let fd = snd (StringMap.choose func_decls) in
-         if List.length actuals != List.length fd.formals then
+         (match fdectr with
+           Id fname -> let fsign = fname ^
+                                   List.fold_left (fun s fm -> s ^ string_of_typ (expr locals fm)) "" actuals in
+                      
+
+         let fd = StringMap.find fsign func_decls in
+         ignore(print_endline(string_of_fdecl fd)); if List.length actuals != List.length fd.formals then
            raise (Failure ("expecting " ^ string_of_int
              (List.length fd.formals) ^ " arguments in " ^ string_of_expr call))
          else
@@ -197,6 +192,7 @@ let check (functions, statements) =
              fd.formals actuals;
            if not fd.checked then check_func fd else ();
            fd.typ
+          | _ -> raise(Failure(string_of_expr fdectr ^ " is not a valid function to call" )))
       | EleAt(arr, _) as ele-> (match arr with
                            EleAt(iarr, _) -> let iat = expr locals iarr in
                                              (match iat with
@@ -222,7 +218,8 @@ let check (functions, statements) =
             | _ -> raise(Failure ("type " ^ string_of_typ t ^ "has no valid property " ^ prp)))
 
       (*TODO: check anonymous function*)
-      | AnonFunc(fdecl) -> Func(Void, [])
+      | AnonFunc(func_decl) -> let formal_types = List.map (fun (ftyp, _) -> ftyp) func_decl.formals  in
+                                            Func(func_decl.typ, formal_types)
       | _ as unk -> raise(Failure (string_of_expr unk ^ " is an unknown expression type"))
 
     and check_func func =
