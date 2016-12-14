@@ -1,7 +1,7 @@
 pix canvas[960][960] = [[0]];
 int SQ_W = 300;
 
-function pix[][] graph(pix canvas[][], function pix (int, int) painter) {
+function pix[][] graph(pix[][] canvas, function pix (int, int) painter) {
     int x, y;
     for (y = canvas.min; y <= canvas.max; y++) {
         for (x = canvas[y].min; x <= canvas[y].max; x++) {
