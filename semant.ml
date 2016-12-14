@@ -29,7 +29,7 @@ let check (functions, statements) =
   (* check that rvalue type can be assigned to lvalue type *)
   let check_assign lvalt rvalt err =
       if lvalt = rvalt then lvalt
-      else if ((lvalt = Pix && rvalt = Int) || (lvalt = Arr(Pix) && rvalt = Arr(Int)) || (lvalt = Arr(Arr(Pix)) && rvalt = Arr(Arr(Int)))) then lvalt
+      else if ((lvalt = Pix && rvalt = Int) || (lvalt = ArrRef(Pix) && rvalt = ArrRef(Int)) || (lvalt = ArrRef(ArrRef(Pix)) && rvalt = ArrRef(ArrRef(Int)))) then lvalt
       else raise err
   in
 
@@ -60,7 +60,7 @@ let check (functions, statements) =
 
     let rec typ_of_bind = function
           (t, DecId(_)) -> t
-        | (t, DecArr(d, _)) -> typ_of_bind (Arr(t), d)
+        | (t, DecArr(d, _)) -> typ_of_bind (ArrRef(t), d)
     in
 
     let func_sign fd =
@@ -127,7 +127,7 @@ let check (functions, statements) =
         | _ -> raise(Failure("Incorrect amount of arguments to use a pix literal")))
       | ArrLit(el) as arrl -> let t = expr locals (List.hd el) in
                               let rec tm typ = (function
-                                  [] -> Arr(typ)
+                                  [] -> ArrRef(typ)
                                 | _ as l -> let h = List.hd l in
                                             if typ = (expr locals h) then tm typ (List.tl l)
                                             else raise(Failure ("Array types in array literal " ^ string_of_expr arrl ^ " do not match"))) in
@@ -193,12 +193,12 @@ let check (functions, statements) =
       | EleAt(arr, _) as ele-> (match arr with
                            EleAt(iarr, _) -> let iat = expr locals iarr in
                                              (match iat with
-                                               Arr(Arr(arr_t)) -> arr_t
+                                               ArrRef(ArrRef(arr_t)) -> arr_t
                                              | _ -> raise(Failure (string_of_expr ele ^ " is not a valid array")))
                          | _ -> let iat = expr locals arr in
                                              (match iat with
-                                               Arr(Arr(arr_t)) -> Arr(arr_t)
-                                             | Arr(arr_t) -> arr_t
+                                               ArrRef(ArrRef(arr_t)) -> ArrRef(arr_t)
+                                             | ArrRef(arr_t) -> arr_t
                                              | _ -> raise(Failure (string_of_expr ele ^ " is not a valid array"))))
                            
       | PropAcc(e, prp) -> 
@@ -209,7 +209,7 @@ let check (functions, statements) =
               Pix -> (match prp with
                              "red" | "green" | "blue" -> Int
                             | _ -> raise(Failure ("invalid pixel property " ^ prp))) 
-            | Arr(_) -> (match prp with
+            | ArrRef(_) -> (match prp with
                              "size" -> Int
                             | _ -> raise(Failure ("invalid array property " ^ prp)))
             | _ -> raise(Failure ("type " ^ string_of_typ t ^ "has no valid property " ^ prp)))
