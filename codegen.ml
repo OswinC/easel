@@ -31,6 +31,9 @@ let translate (functions, statements) =
 	  | A.Bool -> i1_t
 	  | A.Void -> void_t
 	  | A.Pix -> pix_t 
+      | A.Func(rt, fts) ->
+              let formal_t = Array.of_list (List.map (fun ft -> lltype_of_typ ft) fts) in
+              ptr_t (L.function_type (lltype_of_typ rt) formal_t)
 	  | A.Arr(t) -> 
               let t' = lltype_of_typ t in 
               ptr_t t'
@@ -145,9 +148,7 @@ let translate (functions, statements) =
 
 
 	let lookup env n = try StringMap.find n env.locals
-					 with Not_found -> Hashtbl.find globals n in 
-
-        (* Constructing code for declarations *)
+                     with Not_found -> Hashtbl.find globals n in
 
 	(* Constructing code for expressions *)
 	let rec expr env = function
@@ -168,7 +169,8 @@ let translate (functions, statements) =
                                     let p_v' = L.build_add r_v' g_v' "tmp" env.builder in
                                     let p_v'' = L.build_add p_v' b_v' "tmp" env.builder in
                                         L.build_add p_v'' a_v "tmp" env.builder
-      | A.Id id -> L.build_load (fst (lookup env id)) id env.builder
+      | A.Id id -> (try L.build_load (fst (lookup env id)) id env.builder
+                    with Not_found -> fst (StringMap.find id function_decls))
 	  | A.Noexpr -> L.const_int i32_t 0
 	  | A.Binop (e1, op, e2) -> 
             let exp1 = expr env e1
@@ -311,15 +313,15 @@ let translate (functions, statements) =
          L.build_fdiv (sol) (base) "log" env.builder
 
       | A.Call (A.Id("rand"), []) -> L.build_call extfunc_rand [||] "rand_call" env.builder
-      | A.Call (A.Id("rand"), [e]) -> L.build_call extfunc_rands [|(expr env e)|] "rand_call" env.builder
-
-
+      | A.Call (A.Id("rand"), [e]) -> L.build_call extfunc_rands [|(expr env e)|] "rand_call" env.builder 
       | A.Call (A.Id(func), act) -> 
-          let (fdef, fdecl) = StringMap.find func function_decls in 
+          (*let (fdef, fdecl) = StringMap.find func function_decls in *)
+          let fdef = expr env (A.Id(func)) in 
+          (*let result = (match fdecl.A.typ with A.Void -> ""*)
+                                             (*| _ -> func ^ "_result") in*)
           let actuals = List.rev (List.map (expr env) (List.rev act)) in
-          let result = (match fdecl.A.typ with A.Void -> ""
-                                             | _ -> func ^ "_result") in
-              L.build_call fdef (Array.of_list actuals) result env.builder
+              L.build_call fdef (Array.of_list actuals) "tmp" env.builder
+              (*L.build_call fdef (Array.of_list actuals) result env.builder*)
     in
 
     (* Invoke "f builder" if the current block doesn't already
@@ -433,5 +435,5 @@ let translate (functions, statements) =
     in
     
     build_main_function (List.rev statements);
-    List.iter build_function_body functions;
+    List.iter build_function_body (List.rev functions);
     the_module
