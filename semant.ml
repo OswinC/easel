@@ -71,7 +71,10 @@ let check (functions, statements) =
   report_dup (fun n -> "duplicate function " ^ n)
       (List.map (fun fd -> func_sign fd) functions);
 
-  let func_decls = List.fold_left (fun m fd -> StringMap.add (func_sign fd) fd m)
+  let func_decls =  List.fold_left (fun m fd -> let formal_types = 
+                        List.map (fun formals -> fst formals) fd.formals in 
+                        ignore(Hashtbl.add globals fd.fname (Func(fd.typ, formal_types))); 
+                        StringMap.add (func_sign fd) fd m)
     StringMap.empty functions
   in
 
@@ -82,13 +85,6 @@ let check (functions, statements) =
     (* a main function isn't required for easel *)
     (*let _ = func_decl "main" in*)
     let type_of_identifier locals id =
-      try StringMap.find id locals
-      with Not_found ->
-          try Hashtbl.find globals id
-          with Not_found -> raise (Failure ("undeclared identifier " ^ id))
-    in
-
-    let length_of_arr_identifier locals id =
       try StringMap.find id locals
       with Not_found ->
           try Hashtbl.find globals id
@@ -180,11 +176,12 @@ let check (functions, statements) =
                                    List.fold_left (fun s fm -> s ^ string_of_typ (expr locals fm)) "" actuals in
                       
 
-         let fd = StringMap.find fsign func_decls in
-         ignore(print_endline(string_of_fdecl fd)); if List.length actuals != List.length fd.formals then
+         let fd = func_decl fsign in
+         if List.length actuals != List.length fd.formals then
            raise (Failure ("expecting " ^ string_of_int
              (List.length fd.formals) ^ " arguments in " ^ string_of_expr call))
          else
+           ignore(print_endline(List.fold_left (fun s (ft,_) -> s ^ " " ^ (string_of_typ ft)) "" fd.formals));
            List.iter2 (fun (ft, _) e -> let et = expr locals e in
               ignore (check_assign ft et
                 (Failure ("illegal actual argument found " ^ string_of_typ et ^
@@ -224,8 +221,11 @@ let check (functions, statements) =
 
     and check_func func =
         (* TODO: check formals for being void and duplicate *)
+        List.iter (fun (typ, dect) -> let sdectr = string_of_dectr dect in check_void (fun n -> "Illegal Void value for formal"^n) (typ,sdectr)) func.formals;
+        report_dup (fun n -> "Duplicate formals in function " ^ func.fname) func.formals;
+        let formals = List.fold_left (fun m (typ, n) -> ignore(print_endline(string_of_dectr n));StringMap.add (string_of_dectr n) typ m) StringMap.empty func.formals in
         (* TODO: replace this empty map by a map of formals *)
-        check_stmt StringMap.empty func.typ (Block func.body)
+        check_stmt formals func.typ (Block func.body)
 
     and check_vdef l t = function
         InitDectr(d, Noexpr) -> typ_of_bind (t, d)
@@ -282,7 +282,7 @@ let check (functions, statements) =
       | stmt -> check_stmt StringMap.empty Int stmt
     in
 
-    (*List.iter check_func functions*)
+    List.iter check_func functions;
     List.iter check_global_stmt (List.rev statements)
     (* TODO: Check for remaining functions not called by anyone?*)
 
