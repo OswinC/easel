@@ -34,7 +34,7 @@ let translate (functions, statements) =
       | A.Func(rt, fts) ->
               let formal_t = Array.of_list (List.map (fun ft -> lltype_of_typ ft) fts) in
               ptr_t (L.function_type (lltype_of_typ rt) formal_t)
-	  | A.Arr(t) -> 
+	  | A.ArrRef(t) -> 
               let t' = lltype_of_typ t in 
               ptr_t t'
 
