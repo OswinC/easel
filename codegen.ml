@@ -383,7 +383,7 @@ let translate (functions, statements) =
                                    L.build_ret e'' env.builder
 			| (A.Float, i32_t) -> let e'' = L.build_sitofp e' float_t "tmp" env.builder in
                                    L.build_ret e'' env.builder
-			| _ -> L.build_ret (expr env e) env.builder
+			| _ -> L.build_ret e' env.builder
             ); env
        (* | If of expr * stmt * stmt *)
     in
