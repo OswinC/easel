@@ -315,13 +315,9 @@ let translate (functions, statements) =
       | A.Call (A.Id("rand"), []) -> L.build_call extfunc_rand [||] "rand_call" env.builder
       | A.Call (A.Id("rand"), [e]) -> L.build_call extfunc_rands [|(expr env e)|] "rand_call" env.builder 
       | A.Call (A.Id(func), act) -> 
-          (*let (fdef, fdecl) = StringMap.find func function_decls in *)
           let fdef = expr env (A.Id(func)) in 
-          (*let result = (match fdecl.A.typ with A.Void -> ""*)
-                                             (*| _ -> func ^ "_result") in*)
           let actuals = List.rev (List.map (expr env) (List.rev act)) in
               L.build_call fdef (Array.of_list actuals) "tmp" env.builder
-              (*L.build_call fdef (Array.of_list actuals) result env.builder*)
     in
 
     (* Invoke "f builder" if the current block doesn't already
