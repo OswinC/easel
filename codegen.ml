@@ -108,9 +108,12 @@ let translate (functions, statements) =
         
     let local_var t env = function A.InitDectr(dectr, init) ->
       let n = id_of_dectr dectr in
-      let loc = L.build_alloca (lltype_of_typ t) n env.builder in
-      let inst = init_var t dectr init in 
-      let _ = L.build_store inst loc env.builder in 
+      let loc = L.build_alloca (lltype_of_dectr t dectr) n env.builder in
+      let _ = match dectr with
+                (* Only store initial values for scalar variables *)
+                A.DecId(_) -> L.build_store (init_var t dectr init) loc env.builder
+                (* loc is returned as some meaningless dummy value *)
+              | A.DecArr(_, _) -> loc in
       let locals = StringMap.add n (loc, (t, dectr)) env.locals in
       { env with locals = locals }
     in
@@ -238,16 +241,16 @@ let translate (functions, statements) =
       | A.Assign(e1, e2) -> let e1' = (match e1 with
 			            A.Id s -> fst (lookup env s)
                       | A.EleAt(arr, ind) -> (match arr with 
-				                    A.Id s -> L.build_gep (fst (lookup env s)) [|L.const_int i32_t 0; expr env ind|] s env.builder
+				                    A.Id s -> L.build_in_bounds_gep (fst (lookup env s)) [|L.const_int i32_t 0; expr env ind|] s env.builder
 				                  | A.EleAt(s, l) -> let s' = get_arr_id s in 
-					                L.build_gep (fst (lookup env s')) [|L.const_int i32_t 0; expr env ind; expr env l|] s' env.builder)
+					                L.build_in_bounds_gep (fst (lookup env s')) [|L.const_int i32_t 0; expr env ind; expr env l|] s' env.builder)
 					  )
 			    and e2' = expr env e2 in
 			    ignore(L.build_store e2' e1' env.builder); e2'
       | A.EleAt(arr, ind) -> (match arr with
-          A.Id s -> L.build_load (L.build_gep (fst (lookup env s )) [|L.const_int i32_t 0; expr env ind|] s env.builder) s env.builder
+          A.Id s -> L.build_load (L.build_in_bounds_gep (fst (lookup env s )) [|L.const_int i32_t 0; expr env ind|] s env.builder) s env.builder
         | A.EleAt(s, l) -> let s' = get_arr_id s in
-          L.build_load (L.build_gep (fst (lookup env s')) [|L.const_int i32_t 0; expr env ind; expr env l|] s' env.builder) s' env.builder
+          L.build_load (L.build_in_bounds_gep (fst (lookup env s')) [|L.const_int i32_t 0; expr env ind; expr env l|] s' env.builder) s' env.builder
         )
       | A.PropAcc(e,s)-> (match s with 
           "red" -> let v = expr env e 
