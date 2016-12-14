@@ -237,12 +237,11 @@ let translate (functions, statements) =
 	  (*TODO: AnonFunc, finish Call *)
       | A.Assign(e1, e2) -> let e1' = (match e1 with
 			            A.Id s -> fst (lookup env s)
-				  | A.EleAt(arr, ind) -> (match arr with 
-				       A.Id s -> L.build_gep (fst (lookup env s)) [|L.const_int i32_t 0; expr env ind|] s env.builder
-				     | A.EleAt(s, l) -> let s' = get_arr_id s in 
-					L.build_gep (fst (lookup env s')) [|L.const_int i32_t 0; expr env ind; expr env l|] s' env.builder
+                      | A.EleAt(arr, ind) -> (match arr with 
+				                    A.Id s -> L.build_gep (fst (lookup env s)) [|L.const_int i32_t 0; expr env ind|] s env.builder
+				                  | A.EleAt(s, l) -> let s' = get_arr_id s in 
+					                L.build_gep (fst (lookup env s')) [|L.const_int i32_t 0; expr env ind; expr env l|] s' env.builder)
 					  )
-					)
 			    and e2' = expr env e2 in
 			    ignore(L.build_store e2' e1' env.builder); e2'
       | A.EleAt(arr, ind) -> (match arr with
