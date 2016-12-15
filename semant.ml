@@ -87,6 +87,8 @@ let check (functions, statements) =
     (* a main function isn't required for easel *)
     (*let _ = func_decl "main" in*)
     let type_of_identifier locals id =
+      (*ignore(print_endline("Current locals:"));ignore(StringMap.iter (fun f _ -> print_endline f) locals);
+      ignore(print_endline("Current globals:"));ignore(Hashtbl.iter (fun f _ -> print_endline f) globals);*)
       try StringMap.find id locals
       with Not_found ->
           try Hashtbl.find globals id
@@ -127,13 +129,13 @@ let check (functions, statements) =
                           if (t1 = Int && t2 = Int && t3 = Int) then Pix 
                           else raise(Failure ("illegal pix value [" ^ string_of_expr e1 ^ string_of_expr e2 ^ string_of_expr e3 ^ "]"))
         | _ -> raise(Failure("Incorrect amount of arguments to use a pix literal")))
-      | ArrLit(el) as arrl -> let t = expr locals func_locals (List.hd el) in
+      | ArrLit(el) as arrl ->raise(Failure("Array literals are not currently supported")) (*let t = expr locals func_locals (List.hd el) in
                               let rec tm typ = (function
                                   [] -> ArrRef(typ)
                                 | _ as l -> let h = List.hd l in
                                             if typ = (expr locals func_locals h) then tm typ (List.tl l)
                                             else raise(Failure ("Array types in array literal " ^ string_of_expr arrl ^ " do not match"))) in
-                              tm t el
+                              tm t el*)
                            
       | Id s -> type_of_identifier locals s
       | Binop(e1, op, e2) as e -> let t1 = expr locals func_locals e1 and t2 = expr locals func_locals e2 in
@@ -156,9 +158,6 @@ let check (functions, statements) =
           | Inc | Dec -> (match t with 
                         Int -> Int
                       | Float -> Float)
-          (*TODO: check **, //, ^^ *)
-          | UMult | UDiv when t = Int -> Int
-          | UPow when t = Int or t = Float -> Float 
           | _ -> raise (Failure ("illegal unary operator " ^ string_of_uop op ^
            string_of_typ t ^ " in " ^ string_of_expr ex))
         )
@@ -213,12 +212,10 @@ let check (functions, statements) =
                             | _ -> raise(Failure ("invalid array property " ^ prp)))
             | _ -> raise(Failure ("type " ^ string_of_typ t ^ "has no valid property " ^ prp)))
 
-      (*TODO: check anonymous function*)
       | AnonFunc(func_decl) -> let formal_types = List.map (fun (ftyp, _) -> ftyp) func_decl.formals  in
                                             Func(func_decl.typ, formal_types)
 
     and check_func func =
-        (*TODO: Figure out how to pass anonymous functions when checking statements (is it another list like "locals"?) *)
         report_dup (fun n -> "Duplicate formals in function " ^ func.fname) func.formals;
         List.iter (check_void (fun n -> "Formal arguments cannot have a void type" ^ string_of_dectr n)) func.formals;
         let func_formals = List.fold_left (fun m (typ, dect) -> (match typ with
@@ -230,7 +227,7 @@ let check (functions, statements) =
                                                                                StringMap.add form_func_sign fd m
                                                                | _ -> m)) StringMap.empty func.formals in
         let formals = List.fold_left (fun m (typ, dect) -> StringMap.add (string_of_dectr dect) typ m) StringMap.empty func.formals in
-        ignore (StringMap.iter (fun fdn _ -> print_endline("Local func: " ^ fdn)) func_formals);
+        (*ignore (StringMap.iter (fun f _ -> print_endline("Local formals: " ^ f)) formals);*)
 
         check_stmt formals func_formals func.typ (Block func.body);ignore(func.checked = true)
 
@@ -243,10 +240,11 @@ let check (functions, statements) =
         " = " ^ string_of_typ rt ^ " in " ^ string_of_typ t ^ string_of_initdectr initd))
 
     and add_locals locals func_locals t initds =
+        (*ignore(print_endline("Init Dectrs: "));ignore(List.iter (fun i -> match i with InitDectr(d,e)-> print_endline(string_of_dectr d)) initds);*)
         List.fold_left (fun m initd -> match initd with InitDectr(d, e) ->
-            let tt = check_vdef locals func_locals t initd in
-            let id = id_of_dectr d in
-            if not (StringMap.mem id locals) then StringMap.add id (*fst initd*)tt locals
+            let tt = check_vdef m func_locals t initd in
+            let id = id_of_dectr d in (*ignore(print_endline("ID: " ^ id));*)
+            if not (StringMap.mem id m) then StringMap.add id (*fst initd*)tt m 
             else raise (Failure ("duplicate local " ^ id))
         ) locals initds
 
@@ -255,7 +253,7 @@ let check (functions, statements) =
         [Return _ as s] -> check_stmt locals func_locals funct s
       | Return _ :: _ -> raise (Failure "nothing may follow a return")
       | Block sl :: ss -> check_block locals func_locals funct sl; check_block locals func_locals funct ss
-      | Vdef(t, initds) :: ss -> check_block (add_locals locals func_locals t initds) func_locals funct ss
+      | Vdef(t, initds) :: ss -> check_block (add_locals locals func_locals t (List.rev initds)) func_locals funct ss
       | s :: ss -> check_stmt locals func_locals funct s; check_block locals func_locals funct ss
       | [] -> ()
 
@@ -273,11 +271,11 @@ let check (functions, statements) =
       | For(e1, e2, e3, st) -> ignore (expr locals func_locals e1); check_bool_expr locals func_locals e2;
                                ignore (expr locals func_locals e3); check_stmt locals func_locals funct st
       | While(p, s) -> check_bool_expr locals func_locals p; check_stmt locals func_locals funct s
-      | Vdef(t, ids) -> raise (Failure ("declaring local variable is only allowed in blocks"))*)
+      | Vdef(t, ids) -> raise (Failure ("declaring local variable is only allowed in blocks"))
     in
 
     (*Only variables defined outside any block are globals*)
-    let check_global_vars = function
+    let check_global_stmt = function
         (* initds: init_dectr list *)
         Vdef(t, initds) -> List.iter
             (fun initd -> match initd with InitDectr(d, e) ->
@@ -286,17 +284,8 @@ let check (functions, statements) =
                 if not (Hashtbl.mem globals id) then Hashtbl.add globals id (*fst initd*)tt
                 else raise (Failure ("duplicate global " ^ id)))
             initds
-      | _ -> ignore 0
+      | stmt -> check_stmt StringMap.empty StringMap.empty Int stmt
     in
 
-    let check_global_stmt = function
-        stmt -> check_stmt StringMap.empty StringMap.empty Int stmt
-      | _ -> ignore 0
-    in
-
-    let revstatements = List.rev statements in 
-    List.iter check_global_vars (revstatements);
-    List.iter check_func functions;
-    List.iter check_global_stmt revstatements
-    (* TODO: Check for remaining functions not called by anyone?*)
-
+    List.iter check_global_stmt (List.rev statements);
+    StringMap.iter (fun _ f -> if not f.checked then check_func f else ()) func_decls
