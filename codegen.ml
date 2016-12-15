@@ -5,7 +5,7 @@ module A = Ast
 module StringMap = Map.Make(String)
 
 type easel_env = {
-    locals: (L.llvalue * (A.typ * A.dectr)) StringMap.t;
+    locals: (L.llvalue * (A.typ * A.dectr * bool)) StringMap.t;
     builder: L.llbuilder; 
     the_func: L.llvalue; 
     ret_typ: A.typ;
@@ -15,15 +15,31 @@ let translate (functions, statements) =
 	let context = L.global_context() in
 	let the_module = L.create_module context "easel"
 	and i32_t = L.i32_type context
-        and i8_t = L.i8_type   context
+    and i8_t = L.i8_type   context
 	and float_t = L.double_type context
 	and i1_t = L.i1_type context
 	and void_t = L.void_type context
 	and pix_t = L.i32_type context
-	and arr_t t n = L.array_type t n 
-	and ptr_t t = L.pointer_type t
-        
-	(*and func_t = L.function_type *)in
+	and arr_t t n = L.array_type t n in
+    let rec nd_arr_t t = function
+          1 -> arr_t t 0
+        | n when n > 1 -> arr_t (nd_arr_t t (n - 1)) 0
+        | _ -> raise (Failure "invalid n for nd_arr_t")
+    in
+    let n_ptr_t t = function
+          1 -> L.pointer_type t
+        | n when n > 1 -> L.pointer_type (nd_arr_t t (n - 1))
+        | _ -> raise (Failure "invalid n for n_ptr_t")
+    in
+    let ptr_t t = n_ptr_t t 1 in
+
+    let zero = L.const_int i32_t 0 in
+    let rec zero_list = function
+          1 -> [zero]
+        | n when n > 1 -> zero :: zero_list (n - 1)
+        | _ -> raise (Failure "invalid n for zero_list")
+    in 
+    let zero_arr n = Array.of_list (zero_list n) in
 
 	let rec lltype_of_typ = function
 	    A.Int -> i32_t
@@ -34,6 +50,9 @@ let translate (functions, statements) =
       | A.Func(rt, fts) ->
               let formal_t = Array.of_list (List.map (fun ft -> lltype_of_typ ft) fts) in
               ptr_t (L.function_type (lltype_of_typ rt) formal_t)
+	  | A.ArrRef(A.ArrRef(t)) -> 
+              let t' = lltype_of_typ t in 
+              ptr_t (arr_t t' 0)
 	  | A.ArrRef(t) -> 
               let t' = lltype_of_typ t in 
               ptr_t t'
@@ -95,7 +114,7 @@ let translate (functions, statements) =
     let global_var t = function A.InitDectr(dectr, init) ->
       let inst = init_var t dectr init in 
       let n = id_of_dectr dectr in
-      Hashtbl.add globals n (L.define_global n inst the_module, (t, dectr)) 
+      Hashtbl.add globals n (L.define_global n inst the_module, (t, dectr, false)) 
     in
 
     let function_decls = 
@@ -114,7 +133,7 @@ let translate (functions, statements) =
                 A.DecId(_) -> L.build_store (init_var t dectr init) loc env.builder
                 (* loc is returned as some meaningless dummy value *)
               | A.DecArr(_, _) -> loc in
-      let locals = StringMap.add n (loc, (t, dectr)) env.locals in
+      let locals = StringMap.add n (loc, (t, dectr, false)) env.locals in
       { env with locals = locals }
     in
 
@@ -147,11 +166,26 @@ let translate (functions, statements) =
     let extfunc_rand_t = L.function_type float_t [|i32_t|] in 
     let extfunc_rands = L.declare_function "randos" extfunc_rand_t the_module in
 
+    let rec __dectr_arr_dim n = function
+        A.DecArr(d, _) -> __dectr_arr_dim (n + 1) d
+      | A.DecId(_) -> n
+    in
 
-
+    let dectr_arr_dim d = __dectr_arr_dim 0 d in
 
 	let lookup env n = try StringMap.find n env.locals
                      with Not_found -> Hashtbl.find globals n in
+
+    let load_var env id =
+        let (var, (ty, dectr, _)) = lookup env id in
+        let dim = dectr_arr_dim dectr in
+        if dim = 0 then L.build_load var id env.builder
+        else
+        (*L.build_in_bounds_gep var (zero_arr dim) id env.builder*)
+        let arr_pos = L.build_in_bounds_gep var (zero_arr dim) id env.builder in
+        let arr_ptr_t = n_ptr_t (lltype_of_typ ty) dim in
+        L.build_bitcast arr_pos arr_ptr_t id env.builder
+    in
 
 	(* Constructing code for expressions *)
 	let rec expr env = function
@@ -172,7 +206,7 @@ let translate (functions, statements) =
                                     let p_v' = L.build_add r_v' g_v' "tmp" env.builder in
                                     let p_v'' = L.build_add p_v' b_v' "tmp" env.builder in
                                         L.build_add p_v'' a_v "tmp" env.builder
-      | A.Id id -> (try L.build_load (fst (lookup env id)) id env.builder
+      | A.Id id -> (try load_var env id
                     with Not_found -> fst (StringMap.find id function_decls))
 	  | A.Noexpr -> L.const_int i32_t 0
 	  | A.Binop (e1, op, e2) -> 
@@ -225,7 +259,6 @@ let translate (functions, statements) =
 	    	  A.Neg -> L.build_neg exp "tmp" env.builder
 	        | A.Not -> L.build_not exp "tmp" env.builder
                 | A.Inc -> (match typ with
-      (*| A.Id id -> L.build_load (fst (lookup env id)) id env.builder*)
                     "double" -> ignore(expr env (A.Assign(e, A.Binop(e, A.Add, A.FloatLit(1.0))))); exp
                   | _ -> ignore(expr env (A.Assign(e, A.Binop(e, A.Add, A.IntLit(1))))); exp
                 )
@@ -238,20 +271,52 @@ let translate (functions, statements) =
                 (*| A.UPow -> expr env(A.Assign(e, A.Binop(e, A.Pow, e)))*)
 	        ) 
 	  (*TODO: AnonFunc, finish Call *)
-      | A.Assign(e1, e2) -> let e1' = (match e1 with
-			            A.Id s -> fst (lookup env s)
-                      | A.EleAt(arr, ind) -> (match arr with 
-				                    A.Id s -> L.build_in_bounds_gep (fst (lookup env s)) [|L.const_int i32_t 0; expr env ind|] s env.builder
-				                  | A.EleAt(s, l) -> let s' = get_arr_id s in 
-					                L.build_in_bounds_gep (fst (lookup env s')) [|L.const_int i32_t 0; expr env ind; expr env l|] s' env.builder)
+      | A.Assign(e1, e2) -> let e1_id = get_arr_id e1 in
+                      let (var, (ty, dectr, fml)) = lookup env e1_id in
+                      let e1' = (match e1 with
+			            A.Id _ -> var
+                      | A.EleAt(arr, ind) -> (match fml with
+                                  (* if this array is not declared in formal, simply access it in one gep *)
+                                  false ->
+                                      (match arr with 
+                                      A.Id _ -> L.build_in_bounds_gep var [|zero; expr env ind|] e1_id env.builder
+                                    | A.EleAt(_, l) -> L.build_in_bounds_gep var [|zero; expr env ind; expr env l|] e1_id env.builder
+                                    )
+                                  (* if this array is declared in formal, follow the way that clang does *)
+                                | true ->
+                                      (match arr with 
+				                      A.Id _ ->
+                                          let tmpp = L.build_load var e1_id env.builder in
+                                          L.build_in_bounds_gep tmpp [|expr env ind|] e1_id env.builder
+				                    | A.EleAt(_, l) ->
+                                      let tmpp = L.build_load var e1_id env.builder in
+                                      let tmpp = L.build_in_bounds_gep tmpp [|expr env ind|] e1_id env.builder in
+                                      L.build_in_bounds_gep tmpp [|zero; expr env l|] e1_id env.builder
+                                    )
+                            )
 					  )
 			    and e2' = expr env e2 in
 			    ignore(L.build_store e2' e1' env.builder); e2'
-      | A.EleAt(arr, ind) -> (match arr with
-          A.Id s -> L.build_load (L.build_in_bounds_gep (fst (lookup env s )) [|L.const_int i32_t 0; expr env ind|] s env.builder) s env.builder
-        | A.EleAt(s, l) -> let s' = get_arr_id s in
-          L.build_load (L.build_in_bounds_gep (fst (lookup env s')) [|L.const_int i32_t 0; expr env ind; expr env l|] s' env.builder) s' env.builder
-        )
+      | A.EleAt(arr, ind) -> let id = get_arr_id arr in
+          let (var, (ty, dectr, fml)) = lookup env id in
+          (match fml with
+              false -> (match arr with
+                A.Id _ -> L.build_load (L.build_in_bounds_gep var [|zero; expr env ind|] id env.builder) id env.builder
+              | A.EleAt(s, l) -> L.build_load (L.build_in_bounds_gep var [|zero; expr env ind; expr env l|] id env.builder) id env.builder
+              )
+            | true -> 
+              (match arr with
+               A.Id _ ->
+               let tmpp = L.build_load var id env.builder in
+               let tmpp = L.build_in_bounds_gep tmpp [|expr env ind|] id env.builder in
+               L.build_load tmpp id env.builder
+             | A.EleAt(_, l) ->
+               let tmpp = L.build_load var id env.builder in
+               let tmpp = L.build_in_bounds_gep tmpp [|expr env ind|] id env.builder in
+               let tmpp = L.build_in_bounds_gep tmpp [|zero; expr env l|] id env.builder in
+               L.build_load tmpp id env.builder
+             )
+          )
       | A.PropAcc(e,s)-> (match s with 
           "red" -> let v = expr env e 
                    and shift = L.const_int i32_t 24 in
@@ -279,14 +344,11 @@ let translate (functions, statements) =
       | A.Call (A.Id("draw"), []) ->
         L.build_call extfunc_draw_def [||] "draw_def" env.builder
       | A.Call (A.Id("draw"), [A.Id(cid); e2; e3]) ->
-        let c = lookup env cid in
-        let c_llval = fst c in
-        let c_col = snd (snd c) in
+        let (c_llval, (_, c_col, _)) = lookup env cid in
         let c_row = sub_dectr c_col in
         let w = decarr_len c_row in
         let h = decarr_len c_col in
-        let zero = L.const_int i32_t 0 in
-        let c_ptr = L.build_in_bounds_gep c_llval [|zero; zero; zero|] "cnvstmp" env.builder in
+        let c_ptr = L.build_in_bounds_gep c_llval (zero_arr 3) "cnvstmp" env.builder in
         L.build_call extfunc_do_draw [| c_ptr; L.const_int i32_t w; L.const_int i32_t h;
                                         expr env e2; expr env e3 |] "do_draw" env.builder
       | A.Call (A.Id("print"), [e]) -> 
@@ -415,7 +477,8 @@ let translate (functions, statements) =
             L.set_value_name n p;
             let local = L.build_alloca (lltype_of_typ ty) n builder in
             ignore (L.build_store p local builder);
-            StringMap.add n (local, (ty, dectr)) m
+            (* the third field indicates whether it is a formal *)
+            StringMap.add n (local, (ty, dectr, true)) m
         in
         let formals = List.fold_left2 add_formal StringMap.empty fdecl.A.formals
             (Array.to_list (L.params the_function))
