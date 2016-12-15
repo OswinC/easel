@@ -1,12 +1,7 @@
-/*pix COLOR;*/
-/*COLOR = 0x3355aa00;*/
-/*COLOR = {#33, #55, #aa};*/
 pix canvas[960][720];
 int W, H;
 W = 960;
 H = 720;
-bool debug;
-debug = false;
 
 function int red(int x, int y) {
     float a = 0., b = 0., c, d, n = 0.;
