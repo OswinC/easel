@@ -71,7 +71,7 @@ let translate (functions, statements) =
         (* 3-D: L.const_array (arr_t (arr_t 5) 10) [|... |]*)
         (* Scalar: L.const_int pix_t 0*)
         A.DecArr(d, l) -> L.const_array (lltype_of_dectr t d) (Array.make l (llval_of_dectr t d))
-      | A.DecId(id) -> (match t with 
+      | A.DecId(_) -> (match t with 
                           A.Int -> L.const_int (lltype_of_typ t) 0 
                         | A.Pix -> L.const_int (lltype_of_typ t) 0 
                         | A.Bool -> L.const_int (lltype_of_typ t) 0 
@@ -275,7 +275,7 @@ let translate (functions, statements) =
 	        ) 
 	  (*TODO: AnonFunc, finish Call *)
       | A.Assign(e1, e2) -> let e1_id = get_arr_id e1 in
-                      let (var, (ty, dectr, fml)) = lookup env e1_id in
+                      let (var, (_, _, fml)) = lookup env e1_id in
                       let e1' = (match e1 with
 			            A.Id _ -> var
                       | A.EleAt(arr, ind) -> (match fml with
@@ -301,11 +301,11 @@ let translate (functions, statements) =
 			    and e2' = expr env e2 in
 			    ignore(L.build_store e2' e1' env.builder); e2'
       | A.EleAt(arr, ind) -> let id = get_arr_id arr in
-          let (var, (ty, dectr, fml)) = lookup env id in
+          let (var, (_, _, fml)) = lookup env id in
           (match fml with
               false -> (match arr with
                 A.Id _ -> L.build_load (L.build_in_bounds_gep var [|zero; expr env ind|] id env.builder) id env.builder
-              | A.EleAt(s, l) -> L.build_load (L.build_in_bounds_gep var [|zero; expr env ind; expr env l|] id env.builder) id env.builder
+              | A.EleAt(_, l) -> L.build_load (L.build_in_bounds_gep var [|zero; expr env ind; expr env l|] id env.builder) id env.builder
               )
             | true -> 
               (match arr with
@@ -455,8 +455,7 @@ let translate (functions, statements) =
       | A.For (e1, e2, e3, body) -> stmt env
 	      ( A.Block [A.Expr e1 ; A.While (e2, A.Block [body ; A.Expr e3]) ] )
 
-      | A.Return e ->
-			let e' = expr env e in
+      | A.Return e -> let e' = expr env e in
             let e_t = L.type_of e' in
 			ignore (match (env.ret_typ, e_t) with
 			  (A.Void, _) -> L.build_ret_void env.builder
@@ -466,7 +465,6 @@ let translate (functions, statements) =
                                    L.build_ret e'' env.builder
 			| _ -> L.build_ret e' env.builder
             ); env
-       (* | If of expr * stmt * stmt *)
     in
 
     let global_stmt env = function
