@@ -54,8 +54,7 @@ let check (functions, statements) =
       { typ = Float; fname = "rando"; formals = [];
           body = []; checked = true }:: 
       { typ = Float; fname = "randos"; formals = [(Int, DecId("seed"))];
-          body = []; checked = true }:: functions
-
+          body = []; checked = true }:: functions 
   in
 
     let rec typ_of_bind = function
@@ -76,6 +75,9 @@ let check (functions, statements) =
                         ignore(Hashtbl.add globals fd.fname (Func(fd.typ, formal_types))); 
                         StringMap.add (func_sign fd) fd m)
     StringMap.empty functions
+  in
+ 
+  let local_func_decls = StringMap.empty
   in
 
   let func_decl s = try StringMap.find s func_decls
@@ -169,8 +171,6 @@ let check (functions, statements) =
 
 
       | Call(fdectr, actuals) as call ->
-         (* TODO: find out the correct signature of fd according to the calling context
-          * and then use it to fetch fd *)
          (match fdectr with
            Id fname -> let fsign = fname ^
                                    List.fold_left (fun s fm -> s ^ string_of_typ (expr locals fm)) "" actuals in
@@ -181,11 +181,10 @@ let check (functions, statements) =
            raise (Failure ("expecting " ^ string_of_int
              (List.length fd.formals) ^ " arguments in " ^ string_of_expr call))
          else
-           ignore(print_endline(List.fold_left (fun s (ft,_) -> s ^ " " ^ (string_of_typ ft)) "" fd.formals));
-           List.iter2 (fun (ft, _) e -> let et = expr locals e in
-              ignore (check_assign ft et
+           List.iter2 (fun b e -> let bt = typ_of_bind b in let et = expr locals e in
+              ignore (check_assign bt et
                 (Failure ("illegal actual argument found " ^ string_of_typ et ^
-                " expected " ^ string_of_typ ft ^ " in " ^ string_of_expr e))))
+                " expected " ^ string_of_typ bt ^ " in " ^ string_of_expr e))))
              fd.formals actuals;
            if not fd.checked then check_func fd else ();
            fd.typ
@@ -217,14 +216,14 @@ let check (functions, statements) =
       (*TODO: check anonymous function*)
       | AnonFunc(func_decl) -> let formal_types = List.map (fun (ftyp, _) -> ftyp) func_decl.formals  in
                                             Func(func_decl.typ, formal_types)
-      | _ as unk -> raise(Failure (string_of_expr unk ^ " is an unknown expression type"))
 
     and check_func func =
-        (* TODO: check formals for being void and duplicate *)
-        List.iter (fun (typ, dect) -> let sdectr = string_of_dectr dect in check_void (fun n -> "Illegal Void value for formal"^n) (typ,sdectr)) func.formals;
+        (*TODO: Figure out how to pass anonymous functions when checking statements (is it another list like "locals"?) *)
         report_dup (fun n -> "Duplicate formals in function " ^ func.fname) func.formals;
-        let formals = List.fold_left (fun m (typ, n) -> ignore(print_endline(string_of_dectr n));StringMap.add (string_of_dectr n) typ m) StringMap.empty func.formals in
-        (* TODO: replace this empty map by a map of formals *)
+        let formals = List.fold_left (fun m (typ, dect) -> (match typ with
+                                                           Func (t,f) -> StringMap.add (string_of_dectr dect) typ m
+                                                         | Void -> raise (Failure ("Illegal Void value for formal"^string_of_dectr dect))
+                                                         | _ -> StringMap.add (string_of_dectr dect) typ m)) StringMap.empty func.formals in
         check_stmt formals func.typ (Block func.body)
 
     and check_vdef l t = function
@@ -270,7 +269,7 @@ let check (functions, statements) =
     in
 
     (*Only variables defined outside any block are globals*)
-    let check_global_stmt = function
+    let check_global_vars = function
         (* initds: init_dectr list *)
         Vdef(t, initds) -> List.iter
             (fun initd -> match initd with InitDectr(d, e) ->
@@ -279,10 +278,17 @@ let check (functions, statements) =
                 if not (Hashtbl.mem globals id) then Hashtbl.add globals id (*fst initd*)tt
                 else raise (Failure ("duplicate global " ^ id)))
             initds
-      | stmt -> check_stmt StringMap.empty Int stmt
+      | _ -> ignore 0
     in
 
+    let check_global_stmt = function
+        stmt -> check_stmt StringMap.empty Int stmt
+      | _ -> ignore 0
+    in
+
+    let revstatements = List.rev statements in 
+    List.iter check_global_vars (revstatements);
     List.iter check_func functions;
-    List.iter check_global_stmt (List.rev statements)
+    List.iter check_global_stmt revstatements
     (* TODO: Check for remaining functions not called by anyone?*)
 
