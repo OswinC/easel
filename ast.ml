@@ -5,7 +5,7 @@ type op = Add | Sub | Mult | Div | Mod | Pow | Equal | Neq | Less | Leq | Greate
 
 and uop = Neg | Not | Inc | Dec | UMult | UDiv | UPow
 
-and typ = Int | Float | Bool | Void | Pix | Func of typ * typ list | Arr of typ
+and typ = Int | Float | Bool | Void | Pix | Func of typ * typ list | ArrRef of typ
 
 and dectr =
     DecId of string
@@ -76,7 +76,7 @@ and string_of_typ = function
   | Pix -> "pix"
   | Func(t, tl) ->
     "function " ^ string_of_typ t ^ " (" ^ String.concat ", " (List.map string_of_typ tl) ^ ")"
-  | Arr(t) -> string_of_typ t ^ "[]"
+  | ArrRef(t) -> string_of_typ t ^ "[]"
 
 and string_of_dectr = function
     DecId(s) -> s

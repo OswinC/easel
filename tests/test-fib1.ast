@@ -10,12 +10,8 @@ return z = fib(x - 1) + fib(x - 2);
 }
 }
 
-function int main()
-{
+
 int x;
 x = 5;
 print(fib(x));
-return 0;
-}
 
-return main();

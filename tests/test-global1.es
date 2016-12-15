@@ -12,11 +12,7 @@ function void AddAgain()
   a = a + 1;
 }
 
-function int main()
-{
   a = 100;
   print(a);
   Add();
   AddAgain();
-  return 0;
-}

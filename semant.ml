@@ -29,7 +29,7 @@ let check (functions, statements) =
   (* check that rvalue type can be assigned to lvalue type *)
   let check_assign lvalt rvalt err =
       if lvalt = rvalt then lvalt
-      else if (lvalt = Pix && rvalt = Int) then lvalt
+      else if ((lvalt = Pix && rvalt = Int) || (lvalt = ArrRef(Pix) && rvalt = ArrRef(Int)) || (lvalt = ArrRef(ArrRef(Pix)) && rvalt = ArrRef(ArrRef(Int)))) then lvalt
       else raise err
   in
 
@@ -37,9 +37,9 @@ let check (functions, statements) =
   let functions =
         { typ = Void; fname = "draw_default"; formals = [];
           body = []; checked = true }::
-        { typ = Void; fname = "do_draw"; formals = [(Pix, DecArr(DecArr(DecId("canvas"), 0), 0))];
+        { typ = Void; fname = "do_draw"; formals = [(Pix, DecArr(DecArr(DecId("canvas"), 0), 0)); (Int, DecId("w")); (Int, DecId("h")); (Int, DecId("x")); (Int, DecId("y"))];
         body = []; checked = true }::
-        { typ = Void; fname = "draw"; formals = [(Pix, DecArr(DecArr(DecId("canvas"), 0), 0))];
+        { typ = Void; fname = "draw"; formals = [(Pix, DecArr(DecArr(DecId("canvas"), 0), 0)); (Int, DecId("w")); (Int, DecId("h"))];
         body = []; checked = true }::
       { typ = Float; fname = "pow"; formals = [(Float, DecId("x")); (Float, DecId("y"))];
           body = []; checked = true }::
@@ -60,18 +60,21 @@ let check (functions, statements) =
 
     let rec typ_of_bind = function
           (t, DecId(_)) -> t
-        | (t, DecArr(d, _)) -> typ_of_bind (Arr(t), d)
+        | (t, DecArr(d, _)) -> typ_of_bind (ArrRef(t), d)
     in
 
     let func_sign fd =
-        string_of_typ fd.typ ^ fd.fname ^
+        fd.fname ^
         List.fold_left (fun s fm -> s ^ string_of_typ (typ_of_bind fm)) "" fd.formals
     in
 
   report_dup (fun n -> "duplicate function " ^ n)
       (List.map (fun fd -> func_sign fd) functions);
 
-  let func_decls = List.fold_left (fun m fd -> StringMap.add (func_sign fd) fd m)
+  let func_decls =  List.fold_left (fun m fd -> let formal_types = 
+                        List.map (fun formals -> fst formals) fd.formals in 
+                        ignore(Hashtbl.add globals fd.fname (Func(fd.typ, formal_types))); 
+                        StringMap.add (func_sign fd) fd m)
     StringMap.empty functions
   in
 
@@ -82,13 +85,6 @@ let check (functions, statements) =
     (* a main function isn't required for easel *)
     (*let _ = func_decl "main" in*)
     let type_of_identifier locals id =
-      try StringMap.find id locals
-      with Not_found ->
-          try Hashtbl.find globals id
-          with Not_found -> raise (Failure ("undeclared identifier " ^ id))
-    in
-
-    let length_of_arr_identifier locals id =
       try StringMap.find id locals
       with Not_found ->
           try Hashtbl.find globals id
@@ -129,11 +125,9 @@ let check (functions, statements) =
                           if (t1 = Int && t2 = Int && t3 = Int) then Pix 
                           else raise(Failure ("illegal pix value [" ^ string_of_expr e1 ^ string_of_expr e2 ^ string_of_expr e3 ^ "]"))
         | _ -> raise(Failure("Incorrect amount of arguments to use a pix literal")))
-      (* TODO: check array type 
-       * int a[4]; a = [1,2,3,4]; *)
       | ArrLit(el) as arrl -> let t = expr locals (List.hd el) in
                               let rec tm typ = (function
-                                  [] -> Arr(typ)
+                                  [] -> ArrRef(typ)
                                 | _ as l -> let h = List.hd l in
                                             if typ = (expr locals h) then tm typ (List.tl l)
                                             else raise(Failure ("Array types in array literal " ^ string_of_expr arrl ^ " do not match"))) in
@@ -153,12 +147,15 @@ let check (functions, statements) =
         )
       | Unop(op, e) as ex -> let t = expr locals e in
       (match op with
-            Neg when t = Int -> Int
+            Neg -> (match t with 
+                        Int -> Int
+                      | Float -> Float)
           | Not when t = Bool -> Bool
-          (*TODO: check ++ and -- *)
-          | Inc | Dec when t = Int -> Int
+          | Inc | Dec -> (match t with 
+                        Int -> Int
+                      | Float -> Float)
           (*TODO: check **, //, ^^ *)
-          | UMult | UDiv | UPow when t = Int -> Int
+          | UMult | UDiv when t = Int -> Int
           | UPow when t = Int or t = Float -> Float 
           | _ -> raise (Failure ("illegal unary operator " ^ string_of_uop op ^
            string_of_typ t ^ " in " ^ string_of_expr ex))
@@ -167,31 +164,24 @@ let check (functions, statements) =
       | Assign(var, e) as ex -> 
           let lt = type_of_identifier locals (id_of_lval var)
             and rt = expr locals e in
-            (* TODO: check that var's dimension is <= lt *)
-           (* match var with
-            EleAt(Id(a), length) -> 
-            let arrlen_in_map = fst (length_of_arrdectr (snd (StringMap.find locals a))) in 
-              if length < arrlen_in_map then check_assign lt rt (Failure ("illegal assignment " ^ 
-                  string_of_typ lt ^ " = " ^ string_of_typ rt ^ " in " ^ string_of_expr ex))
-              else raise(Failure ("illegal dimension access " ^ string_of_expr el))
-          | EleAt(EleAt(Id(a),length1),length2) -> 
-            let arrlen1_in_map = fst (length_of_arrdectr (snd (StringMap.find locals a)))
-              and arrlen2_in_map = snd (length_of_arrdectr (snd (StringMap.find locals a))) in
-              if length1 < arrlen1_in_map && length2 < arrlen2_in_map then check_assign lt rt (Failure ("illegal assignment " ^ 
-                  string_of_typ lt ^ " = " ^ string_of_typ rt ^ " in " ^ string_of_expr ex))
-              else raise(Failure ("illegal dimension access " ^ string_of_expr el))
-          | _ ->*) check_assign lt rt (Failure ("illegal assignment " ^ 
+                  check_assign lt rt (Failure ("illegal assignment " ^ 
                   string_of_typ lt ^ " = " ^ string_of_typ rt ^ " in " ^ string_of_expr ex))
 
 
       | Call(fdectr, actuals) as call ->
          (* TODO: find out the correct signature of fd according to the calling context
           * and then use it to fetch fd *)
-         let fd = snd (StringMap.choose func_decls) in
+         (match fdectr with
+           Id fname -> let fsign = fname ^
+                                   List.fold_left (fun s fm -> s ^ string_of_typ (expr locals fm)) "" actuals in
+                      
+
+         let fd = func_decl fsign in
          if List.length actuals != List.length fd.formals then
            raise (Failure ("expecting " ^ string_of_int
              (List.length fd.formals) ^ " arguments in " ^ string_of_expr call))
          else
+           ignore(print_endline(List.fold_left (fun s (ft,_) -> s ^ " " ^ (string_of_typ ft)) "" fd.formals));
            List.iter2 (fun (ft, _) e -> let et = expr locals e in
               ignore (check_assign ft et
                 (Failure ("illegal actual argument found " ^ string_of_typ et ^
@@ -199,15 +189,16 @@ let check (functions, statements) =
              fd.formals actuals;
            if not fd.checked then check_func fd else ();
            fd.typ
+          | _ -> raise(Failure(string_of_expr fdectr ^ " is not a valid function to call" )))
       | EleAt(arr, _) as ele-> (match arr with
                            EleAt(iarr, _) -> let iat = expr locals iarr in
                                              (match iat with
-                                               Arr(Arr(arr_t)) -> arr_t
+                                               ArrRef(ArrRef(arr_t)) -> arr_t
                                              | _ -> raise(Failure (string_of_expr ele ^ " is not a valid array")))
                          | _ -> let iat = expr locals arr in
                                              (match iat with
-                                               Arr(Arr(arr_t)) -> Arr(arr_t)
-                                             | Arr(arr_t) -> arr_t
+                                               ArrRef(ArrRef(arr_t)) -> ArrRef(arr_t)
+                                             | ArrRef(arr_t) -> arr_t
                                              | _ -> raise(Failure (string_of_expr ele ^ " is not a valid array"))))
                            
       | PropAcc(e, prp) -> 
@@ -218,19 +209,23 @@ let check (functions, statements) =
               Pix -> (match prp with
                              "red" | "green" | "blue" -> Int
                             | _ -> raise(Failure ("invalid pixel property " ^ prp))) 
-            | Arr(_) -> (match prp with
+            | ArrRef(_) -> (match prp with
                              "size" -> Int
                             | _ -> raise(Failure ("invalid array property " ^ prp)))
             | _ -> raise(Failure ("type " ^ string_of_typ t ^ "has no valid property " ^ prp)))
 
       (*TODO: check anonymous function*)
-      | AnonFunc(fdecl) -> Func(Void, [])
+      | AnonFunc(func_decl) -> let formal_types = List.map (fun (ftyp, _) -> ftyp) func_decl.formals  in
+                                            Func(func_decl.typ, formal_types)
       | _ as unk -> raise(Failure (string_of_expr unk ^ " is an unknown expression type"))
 
     and check_func func =
         (* TODO: check formals for being void and duplicate *)
+        List.iter (fun (typ, dect) -> let sdectr = string_of_dectr dect in check_void (fun n -> "Illegal Void value for formal"^n) (typ,sdectr)) func.formals;
+        report_dup (fun n -> "Duplicate formals in function " ^ func.fname) func.formals;
+        let formals = List.fold_left (fun m (typ, n) -> ignore(print_endline(string_of_dectr n));StringMap.add (string_of_dectr n) typ m) StringMap.empty func.formals in
         (* TODO: replace this empty map by a map of formals *)
-        check_stmt StringMap.empty func.typ (Block func.body)
+        check_stmt formals func.typ (Block func.body)
 
     and check_vdef l t = function
         InitDectr(d, Noexpr) -> typ_of_bind (t, d)
@@ -287,7 +282,7 @@ let check (functions, statements) =
       | stmt -> check_stmt StringMap.empty Int stmt
     in
 
-    (*List.iter check_func functions*)
+    List.iter check_func functions;
     List.iter check_global_stmt (List.rev statements)
     (* TODO: Check for remaining functions not called by anyone?*)
 

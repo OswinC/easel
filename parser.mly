@@ -33,25 +33,25 @@ decls:
  | decls stmt { let (fds, sts) = $1 in fds, ($2 :: sts) }
 
 fdecl:
-    FUNC atyp ID LPAREN formals RPAREN LBRACE stmt_list RBRACE
+    FUNC typ ID LPAREN formals RPAREN LBRACE stmt_list RBRACE
      { { typ = $2;
 	 fname = $3;
 	 formals = List.rev $5;
      body = List.rev $8;
      checked = false } }
-  | FUNC atyp ID LPAREN RPAREN LBRACE stmt_list RBRACE
+  | FUNC typ ID LPAREN RPAREN LBRACE stmt_list RBRACE
      { { typ = $2;
 	 fname = $3;
      formals = [];
 	 body = List.rev $7;
      checked = false } }
-  | FUNC atyp ID LPAREN formals RPAREN LBRACE RBRACE
+  | FUNC typ ID LPAREN formals RPAREN LBRACE RBRACE
      { { typ = $2;
 	 fname = $3;
 	 formals = List.rev $5;
      body = [];
      checked = false } }
-  | FUNC atyp ID LPAREN RPAREN LBRACE RBRACE
+  | FUNC typ ID LPAREN RPAREN LBRACE RBRACE
      { { typ = $2;
 	 fname = $3;
      formals = [];
@@ -63,17 +63,13 @@ formals:
   | formals COMMA typ dectr { ($3, $4) :: $1 }
 
 aformals:
-    atyp                    { [$1] }
-  | aformals COMMA atyp { $3 :: $1 }
-
-/* type keywords that can be immediately followed by []s */
-atyp:
-    typ { $1 }
-  | atyp LBRCK RBRCK { Arr($1) }
+    typ                    { [$1] }
+  | aformals COMMA typ { $3 :: $1 }
 
 typ:
     prim_typ { $1 }
   | afunc_typ { $1 }
+  | typ LBRCK RBRCK { ArrRef($1) }
 
 prim_typ:
     INT { Int }
@@ -83,9 +79,9 @@ prim_typ:
   | PIX { Pix }
 
 afunc_typ:
-    FUNC atyp LPAREN aformals RPAREN
+    FUNC typ LPAREN aformals RPAREN
     { Func($2, List.rev $4) }
-  | FUNC atyp LPAREN RPAREN
+  | FUNC typ LPAREN RPAREN
     { Func($2, []) }
 
 init_dectr_list:
@@ -119,13 +115,13 @@ stmt:
   | WHILE LPAREN expr RPAREN stmt { While($3, $5) }
 
 anonfunc:
-    FUNC atyp LPAREN formals RPAREN LBRACE stmt_list RBRACE
+    FUNC typ LPAREN formals RPAREN LBRACE stmt_list RBRACE
     { AnonFunc({ typ = $2; fname = ""; formals = List.rev $4; body = List.rev $7; checked = false }) }
-  | FUNC atyp LPAREN RPAREN LBRACE stmt_list RBRACE
+  | FUNC typ LPAREN RPAREN LBRACE stmt_list RBRACE
     { AnonFunc({ typ = $2; fname = ""; formals = []; body = List.rev $6; checked = false }) }
-  | FUNC atyp LPAREN formals RPAREN LBRACE RBRACE
+  | FUNC typ LPAREN formals RPAREN LBRACE RBRACE
     { AnonFunc({ typ = $2; fname = ""; formals = List.rev $4; body = []; checked = false }) }
-  | FUNC atyp LPAREN RPAREN LBRACE RBRACE
+  | FUNC typ LPAREN RPAREN LBRACE RBRACE
     { AnonFunc({ typ = $2; fname = ""; formals = []; body = []; checked = false }) }
 
 expr_opt:
