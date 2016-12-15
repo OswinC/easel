@@ -100,19 +100,35 @@ let translate (functions, statements) =
       | A.EleAt(id,_) -> get_arr_id id
     in
 
-    let init_var t dectr = function 
+    let format_pix r_v g_v b_v a_v env = 
+        let shift_r = L.const_int i32_t 16777216 (* left shift for 24 bits*)
+        and shift_g = L.const_int i32_t 65536 (* left shift for 16 bits*)
+        and shift_b = L.const_int i32_t 256 in (* left shift for 8 bits*)
+        let r_v' = L.build_mul r_v shift_r "tmp" env.builder
+        and g_v' = L.build_mul g_v shift_g "tmp" env.builder
+        and b_v' = L.build_mul b_v shift_b "tmp" env.builder in
+        let p_v' = L.build_add r_v' g_v' "tmp" env.builder in
+        let p_v'' = L.build_add p_v' b_v' "tmp" env.builder in
+          L.build_add p_v'' a_v "tmp" env.builder
+    in  
+
+    let rec init_var t dectr env = function 
         A.IntLit i -> L.const_int i32_t i
       | A.FloatLit f -> L.const_float float_t f
       | A.BoolLit b -> L.const_int i1_t (if b then 1 else 0)
-      (*| A.PixLit (r, g, b) ->  
-      | A.ArrLit -> *)
+      | A.PixLit (r, g, b, a) -> let r_v = init_var t dectr env r
+          and g_v = init_var t dectr env g
+          and b_v = init_var t dectr env b
+          and a_v = init_var t dectr env a in
+            format_pix r_v g_v b_v a_v env
+      (*| A.ArrLit -> *)
       | _ -> llval_of_dectr t dectr 
     in 
 
     let globals = Hashtbl.create 8 in
 
-    let global_var t = function A.InitDectr(dectr, init) ->
-      let inst = init_var t dectr init in 
+    let global_var t env = function A.InitDectr(dectr, init) ->
+      let inst = init_var t dectr env init in 
       let n = id_of_dectr dectr in
       Hashtbl.add globals n (L.define_global n inst the_module, (t, dectr, false)) 
     in
@@ -130,7 +146,7 @@ let translate (functions, statements) =
       let loc = L.build_alloca (lltype_of_dectr t dectr) n env.builder in
       let _ = match dectr with
                 (* Only store initial values for scalar variables *)
-                A.DecId(_) -> L.build_store (init_var t dectr init) loc env.builder
+                A.DecId(_) -> L.build_store (init_var t dectr env init) loc env.builder
                 (* loc is returned as some meaningless dummy value *)
               | A.DecArr(_, _) -> loc in
       let locals = StringMap.add n (loc, (t, dectr, false)) env.locals in
@@ -197,7 +213,8 @@ let translate (functions, statements) =
                                     and g_v = expr env g_e
                                     and b_v = expr env b_e
                                     and a_v = expr env a_e in
-                                    let shift_r = L.const_int i32_t 16777216 (* left shift for 24 bits *)
+                                      format_pix r_v g_v b_v a_v env
+                                    (*let shift_r = L.const_int i32_t 16777216 (* left shift for 24 bits *)
                                     and shift_g = L.const_int i32_t 65536 (* left shift for 16 bits *)
                                     and shift_b = L.const_int i32_t 256 in (* left shift for 8 bits *)
                                     let r_v' = L.build_mul r_v shift_r "tmp" env.builder
@@ -205,7 +222,7 @@ let translate (functions, statements) =
                                     and b_v' = L.build_mul b_v shift_b "tmp" env.builder in
                                     let p_v' = L.build_add r_v' g_v' "tmp" env.builder in
                                     let p_v'' = L.build_add p_v' b_v' "tmp" env.builder in
-                                        L.build_add p_v'' a_v "tmp" env.builder
+                                        L.build_add p_v'' a_v "tmp" env.builder*)
       | A.Id id -> (try load_var env id
                     with Not_found -> fst (StringMap.find id function_decls))
 	  | A.Noexpr -> L.const_int i32_t 0
@@ -337,7 +354,14 @@ let translate (functions, statements) =
                     and shift_g' = L.const_int i32_t 256 in
                     let g_v' = L.build_mul g_v shift_g' "tmp" env.builder in
                       L.build_sub b_v g_v' "tmp" env.builder
-        (* "size" -> TODO *)
+        | "alpha" -> let v = expr env e
+                     and shift_b = L.const_int i32_t 8 in
+                     let b_v = L.build_ashr v shift_b "tmp" env.builder
+                     and shift_b' = L.const_int i32_t 256 in
+                     let b_v' = L.build_mul b_v shift_b' "tmp" env.builder in
+                       L.build_sub v b_v' "tmp" env.builder
+        (*| "size" -> let id = get_arr_id e in
+                    fst (lookup env id)*)
         )
       (* Call external functions *)
       (* int draw() *)
@@ -452,7 +476,7 @@ let translate (functions, statements) =
 
     let global_stmt env = function
         (* initds: init_dectr list *)
-          A.Vdef(t, initds) -> List.iter (global_var t) (List.rev initds); env
+          A.Vdef(t, initds) -> List.iter (global_var t env) (List.rev initds); env
         | st -> stmt env st
     in
 
