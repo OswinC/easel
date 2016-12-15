@@ -3,7 +3,7 @@
 type op = Add | Sub | Mult | Div | Mod | Pow | Equal | Neq | Less | Leq | Greater | Geq |
           And | Or
 
-and uop = Neg | Not | Inc | Dec | UMult | UDiv | UPow
+and uop = Neg | Not | Inc | Dec 
 
 and typ = Int | Float | Bool | Void | Pix | Func of typ * typ list | ArrRef of typ
 
@@ -99,10 +99,7 @@ and string_of_expr = function
       Neg -> "-" ^ string_of_expr e
     | Not -> "!" ^ string_of_expr e
     | Inc -> string_of_expr e ^ "++"
-    | Dec -> string_of_expr e ^ "--"
-    | UMult -> string_of_expr e ^ "**"
-    | UDiv -> string_of_expr e ^ "//"
-    | UPow -> string_of_expr e ^ "^^";
+    | Dec -> string_of_expr e ^ "--";
     ;
   | Assign(v, e) -> string_of_expr v ^ " = " ^ string_of_expr e
   | Call(f, el) ->

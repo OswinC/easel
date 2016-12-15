@@ -261,8 +261,6 @@ let translate (functions, statements) =
 	  | A.Unop(op, e) ->
 	        let exp = expr env e in
                 let typ = L.string_of_lltype (L.type_of exp) in
-        (*let fincrement b n en = L.build_fadd b (L.const_float float_t 1.0) n en in*)
-        (*let iincrement b n en = L.build_add b (L.const_int i32_t 1) n en in*)
 	        (match op with
 	    	  A.Neg -> L.build_neg exp "tmp" env.builder
 	        | A.Not -> L.build_not exp "tmp" env.builder
@@ -273,10 +271,7 @@ let translate (functions, statements) =
                 | A.Dec -> (match typ with
                     "double" -> ignore(expr env (A.Assign(e, A.Binop(e, A.Sub, A.FloatLit(1.0))))); exp
                   | _ -> ignore(expr env (A.Assign(e, A.Binop(e, A.Sub, A.IntLit(1))))); exp
-	        )
-                | A.UMult -> ignore(expr env (A.Assign(e, A.Binop(e, A.Mult, e)))); exp
-            | A.UDiv -> ignore(expr env(A.Assign(e, A.Binop(e, A.Div, e)))); exp
-                (*| A.UPow -> expr env(A.Assign(e, A.Binop(e, A.Pow, e)))*)
+	          )
 	        ) 
 	  (*TODO: AnonFunc, finish Call *)
       | A.Assign(e1, e2) -> let e1_id = get_arr_id e1 in
