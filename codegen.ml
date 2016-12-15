@@ -214,15 +214,6 @@ let translate (functions, statements) =
                                     and b_v = expr env b_e
                                     and a_v = expr env a_e in
                                       format_pix r_v g_v b_v a_v env
-                                    (*let shift_r = L.const_int i32_t 16777216 (* left shift for 24 bits *)
-                                    and shift_g = L.const_int i32_t 65536 (* left shift for 16 bits *)
-                                    and shift_b = L.const_int i32_t 256 in (* left shift for 8 bits *)
-                                    let r_v' = L.build_mul r_v shift_r "tmp" env.builder
-                                    and g_v' = L.build_mul g_v shift_g "tmp" env.builder
-                                    and b_v' = L.build_mul b_v shift_b "tmp" env.builder in
-                                    let p_v' = L.build_add r_v' g_v' "tmp" env.builder in
-                                    let p_v'' = L.build_add p_v' b_v' "tmp" env.builder in
-                                        L.build_add p_v'' a_v "tmp" env.builder*)
       | A.Id id -> (try load_var env id
                     with Not_found -> fst (StringMap.find id function_decls))
 	  | A.Noexpr -> L.const_int i32_t 0
@@ -337,12 +328,12 @@ let translate (functions, statements) =
       | A.PropAcc(e,s)-> (match s with 
           "red" -> let v = expr env e 
                    and shift = L.const_int i32_t 24 in
-                     L.build_ashr v shift "tmp" env.builder
+                     L.build_lshr v shift "tmp" env.builder
         | "green" -> let v = expr env e
                      and shift_r = L.const_int i32_t 24  
                      and shift_g = L.const_int i32_t 16 in
-                     let r_v = L.build_ashr v shift_r "tmp" env.builder 
-                     and g_v = L.build_ashr v shift_g "tmp" env.builder 
+                     let r_v = L.build_lshr v shift_r "tmp" env.builder 
+                     and g_v = L.build_lshr v shift_g "tmp" env.builder
                      and shift = L.const_int i32_t 256 in 
                      let r_v' = L.build_mul r_v shift "tmp" env.builder in
                        L.build_sub g_v r_v' "tmp" env.builder
@@ -360,8 +351,9 @@ let translate (functions, statements) =
                      and shift_b' = L.const_int i32_t 256 in
                      let b_v' = L.build_mul b_v shift_b' "tmp" env.builder in
                        L.build_sub v b_v' "tmp" env.builder
-        (*| "size" -> let id = get_arr_id e in
-                    fst (lookup env id)*)
+        | "size" -> let id = get_arr_id e in
+                    let (_, (_, dectr, _ )) = lookup env id in
+                      expr env (A.IntLit (decarr_len dectr))
         )
       (* Call external functions *)
       (* int draw() *)
@@ -378,6 +370,10 @@ let translate (functions, statements) =
       | A.Call (A.Id("print"), [e]) -> 
         let int_format_str = L.build_global_stringptr "%d\n" "fmt" env.builder in
         L.build_call extfunc_printf [| int_format_str ; (expr env e) |] "printf" env.builder
+      | A.Call (A.Id("printp"), [e]) -> 
+        let int_format_str = L.build_global_stringptr "%u\n" "fmt" env.builder in
+        L.build_call extfunc_printf [| int_format_str ; (expr env e) |] "printf" env.builder
+
       | A.Call (A.Id("printfl"), [e]) -> 
         let float_format_str = L.build_global_stringptr "%f\n" "fffmt" env.builder in
         L.build_call extfunc_printf [| float_format_str ; (expr env e) |] "printf" env.builder
