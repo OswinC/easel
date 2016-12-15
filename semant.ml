@@ -289,3 +289,4 @@ let check (functions, statements) =
 
     List.iter check_global_stmt (List.rev statements);
     StringMap.iter (fun _ f -> if not f.checked then check_func f else ()) func_decls
+
