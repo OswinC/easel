@@ -1,5 +1,4 @@
 (* easel code generation *)
-open Random
 module L = Llvm
 module A = Ast 
 module StringMap = Map.Make(String)
@@ -71,7 +70,8 @@ let translate (functions, statements) =
                           A.Int -> L.const_int (lltype_of_typ t) 0 
                         | A.Pix -> L.const_int (lltype_of_typ t) 0 
                         | A.Bool -> L.const_int (lltype_of_typ t) 0 
-                        | A.Float -> L.const_float (lltype_of_typ t) 0.0 
+                        | A.Float -> L.const_float (lltype_of_typ t) 0.0
+                        | _ -> raise (Failure "not a valid type for declaration") 
                        )
 
     in
@@ -95,6 +95,7 @@ let translate (functions, statements) =
         A.Id(id) -> id
       | A.EleAt(id,_) -> get_arr_id id
       | A.PropAcc(id,_) -> get_arr_id id
+      | _ -> raise (Failure "does not have id")
     in
 
     let globals = Hashtbl.create 8 in
@@ -126,7 +127,7 @@ let translate (functions, statements) =
 
     let extfunc_pow_t = L.function_type float_t [| float_t; float_t |] in
     let extfunc_pow = L.declare_function "pow" extfunc_pow_t the_module in
-    let pow_call b e n bdr = L.build_call extfunc_pow [|b; e|] "pow_call" bdr in
+    let pow_call b e n bdr = L.build_call extfunc_pow [|b; e|] n bdr in
 
     let extfunc_sin_t = L.var_arg_function_type float_t [|float_t|] in 
     let extfunc_sin = L.declare_function "sin" extfunc_sin_t the_module in
@@ -199,11 +200,12 @@ let translate (functions, statements) =
                   ("double", "double") -> opf
                 | ("i32", "i32") -> opi
                 | ("double", "i32") ->
-                    (fun e1 e2 n bdr -> let e2' = L.build_sitofp e2 float_t "tmp" bdr in
+                    (fun e1 e2 n bdr -> let e2' = L.build_sitofp e2 float_t n bdr in
                                         opf e1 e2' "tmp" bdr)
                 | ("i32", "double") ->
-                    (fun e1 e2 n bdr -> let e1' = L.build_sitofp e1 float_t "tmp" bdr in
+                    (fun e1 e2 n bdr -> let e1' = L.build_sitofp e1 float_t n bdr in
                                         opf e1' e2 "tmp" bdr)
+                | _ -> raise (Failure "not a valid type")
                 ) in
             (match op with
               A.Add -> build_op_by_type L.build_fadd L.build_add
@@ -220,6 +222,7 @@ let translate (functions, statements) =
                         | ("i32", "i32") ->    (fun e1 e2 n bdr -> let e1' = L.build_sitofp e1 float_t "tmp" bdr in
                                                                    let e2' = L.build_sitofp e2 float_t "tmp" bdr in
                                                 pow_call e1' e2' n bdr)
+                        | _ -> raise (Failure "not valid type for power operator")
                         )
             | A.Equal -> build_op_by_type (L.build_fcmp L.Fcmp.Oeq) (L.build_icmp L.Icmp.Eq)
             | A.Neq -> build_op_by_type (L.build_fcmp L.Fcmp.One) (L.build_icmp L.Icmp.Ne)
@@ -246,7 +249,7 @@ let translate (functions, statements) =
 	          )
 	        ) 
       | A.Assign(e1, e2) -> let e1_id = get_arr_id e1 in
-                      let (var, (ty, _, fml)) = lookup env e1_id in
+                      let (var, (_, _, fml)) = lookup env e1_id in
                       let e1' = (match e1 with
 			            A.Id _ -> var
                                   | A.EleAt(arr, ind) -> (match fml with
@@ -255,6 +258,7 @@ let translate (functions, statements) =
                                       (match arr with 
                                       A.Id _ -> L.build_in_bounds_gep var [|zero; expr env ind|] e1_id env.builder
                                     | A.EleAt(_, l) -> L.build_in_bounds_gep var [|zero; expr env ind; expr env l|] e1_id env.builder
+                                    | _ -> raise (Failure "not a valid expression for array assignment")
                                     )
                                   (* if this array is declared in formal, follow the way that clang does *)
                                 | true ->
@@ -266,10 +270,12 @@ let translate (functions, statements) =
                                       let tmpp = L.build_load var e1_id env.builder in
                                       let tmpp = L.build_in_bounds_gep tmpp [|expr env ind|] e1_id env.builder in
                                       L.build_in_bounds_gep tmpp [|zero; expr env l|] e1_id env.builder
+                                     | _ -> raise (Failure "not a valid expression for array assignment")
                                     )
                             )
-                          | A.PropAcc(e, s) -> var (* dummy value, real work below *)
-                          )
+                                  | A.PropAcc(_, _) -> var (* dummy value, real work below *)
+                                  | _ -> raise (Failure "not valid variable for assignment")
+                                  ) 
 			    and e2' = expr env e2 in
                             (match e1 with
                                 A.PropAcc(e,s) -> let e_v = expr env e in
@@ -292,6 +298,7 @@ let translate (functions, statements) =
                                   | "alpha" -> let clr = L.const_int i32_t 4294967040 in
                                                let e_v' = L.build_and e_v clr "tmp" env.builder in
                                                  L.build_or e_v' e2' "tmp" env.builder
+                                  | _ -> raise (Failure "not valid property access for assignment")
                                   ) in ignore(L.build_store e_v'' var env.builder); e_v''
                               | _ -> ignore(L.build_store e2' e1' env.builder); e2'
                             )
@@ -301,6 +308,7 @@ let translate (functions, statements) =
               false -> (match arr with
                 A.Id _ -> L.build_load (L.build_in_bounds_gep var [|zero; expr env ind|] id env.builder) id env.builder
               | A.EleAt(_, l) -> L.build_load (L.build_in_bounds_gep var [|zero; expr env ind; expr env l|] id env.builder) id env.builder
+              | _ -> raise (Failure "not a valid array access")
               )
             | true -> 
               (match arr with
@@ -313,6 +321,7 @@ let translate (functions, statements) =
                let tmpp = L.build_in_bounds_gep tmpp [|expr env ind|] id env.builder in
                let tmpp = L.build_in_bounds_gep tmpp [|zero; expr env l|] id env.builder in
                L.build_load tmpp id env.builder
+             | _ -> raise (Failure "not a valid array access")
              )
           )
       | A.PropAcc(e,s)-> (match s with 
@@ -344,6 +353,7 @@ let translate (functions, statements) =
         | "size" -> let id = get_arr_id e in
                     let (_, (_, dectr, _ )) = lookup env id in
                       expr env (A.IntLit (decarr_len dectr))
+        | _ -> raise (Failure "not a valid property access")
         ) 
       | A.AnonFunc(fdecl) -> anonfunc_decl fdecl
       (* Call external functions *)
@@ -387,7 +397,8 @@ let translate (functions, statements) =
                            (match typ with 
                             "double" -> log_it ex
                           | "i32" -> (let pex = L.build_sitofp ex float_t "tmp" env.builder in
-                                     log_it pex))) in
+                                     log_it pex)
+                          | _ -> raise (Failure "not a valid type"))) in
          let base = promote b
          and sol = promote e in
          L.build_fdiv (sol) (base) "log" env.builder
@@ -402,9 +413,10 @@ let translate (functions, statements) =
             | _ -> "tmp" in
           let actuals = List.rev (List.map (expr env) (List.rev act)) in
               L.build_call fdef (Array.of_list actuals) ret_n env.builder
+      | A.Call(_,_) -> raise (Failure "not a valid function call")
     in
 
-    let rec init_var t dectr env = function 
+    let init_var t dectr env = function 
         A.IntLit i -> expr env (A.IntLit i)
       | A.FloatLit f -> expr env (A.FloatLit f)
       | A.BoolLit b -> expr env (A.BoolLit b)
@@ -489,9 +501,9 @@ let translate (functions, statements) =
             let e_t = L.type_of e' in
 			ignore (match (env.ret_typ, e_t) with
 			  (A.Void, _) -> L.build_ret_void env.builder
-			| (A.Int, float_t) -> let e'' = L.build_fptosi e' i32_t "tmp" env.builder in
+			| (A.Int, _) -> let e'' = L.build_fptosi e' i32_t "tmp" env.builder in
                                    L.build_ret e'' env.builder
-			| (A.Float, i32_t) -> let e'' = L.build_sitofp e' float_t "tmp" env.builder in
+			| (A.Float, _) -> let e'' = L.build_sitofp e' float_t "tmp" env.builder in
                                    L.build_ret e'' env.builder
 			| _ -> L.build_ret e' env.builder
             ); env
