@@ -1,13 +1,14 @@
-pix canvas[960][720];
-int W = 960, H = 720;
+pix canvas[960][840];
+int W = 960, H = 840;
 
-function void graph(pix[960][] canv, int w, int h, function pix (int, int) painter) {
+function pix[960][] graph(pix[960][] canv, int w, int h, function pix (int, int) painter) {
     int x, y;
     for (y = 0; y < h; y++) {
         for (x = 0; x < w; x++) {
             canv[x][y] = painter(x, y);
         }
     }
+    return canv;
 }
 
 function int red(int x, int y) {
@@ -37,10 +38,6 @@ function int blue(int x, int y) {
     return 255 * (((n - 80.)/800.) ^ .5);
 }
 
-function pix paint_mandelbrot(int x, int y) {
+draw(graph(canvas, W, H, function pix (int x, int y) {
     return { red(x, y), green(x, y), blue(x, y), 0 };
-}
-
-graph(canvas, W, H, paint_mandelbrot);
-
-draw(canvas, 0, 0);
+}), W, H, 0, 0);
