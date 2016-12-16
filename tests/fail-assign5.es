@@ -1,2 +1,2 @@
 float f = 2.56;
-f = #ff e-10; /* floating point values can't have hex representations */
+f = #ff - 10; /* integer values can't be assign to floating point variables*/

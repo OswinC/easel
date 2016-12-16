@@ -1,1 +1,2 @@
-Fatal error: exception Parsing.Parse_error
+Fatal error: exception Failure("illegal pix value [1.170100]")
+
