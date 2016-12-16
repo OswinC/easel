@@ -37,11 +37,10 @@ function int blue(int x, int y) {
     return 255 * (((n - 80.)/800.) ^ .5);
 }
 
-function pix mandelbrot(int x, int y) {
+graph(canvas, W, H, function pix (int x, int y) {
     pix p;
     p = { red(x, y), green(x, y), blue(x, y), 0 };
     return p;
-}
+});
 
-graph(canvas, W, H, mandelbrot);
 draw(canvas, 0, 0);

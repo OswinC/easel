@@ -98,13 +98,22 @@ let translate (functions, statements) =
 
     let globals = Hashtbl.create 8 in
 
-    let function_decls = 
-      let function_decl m fdecl =
-	let name = fdecl.A.fname
-	and formal_t = Array.of_list (List.map (fun (t,_) -> lltype_of_typ t) fdecl.A.formals) in
-	let ftype = L.function_type (lltype_of_typ fdecl.A.typ) formal_t in
-	  StringMap.add name (L.define_function name ftype the_module, fdecl) m in
-	List.fold_left function_decl StringMap.empty functions in	
+    let function_decls = Hashtbl.create 8 in 
+    let function_decl tbl fdecl =
+        let name = fdecl.A.fname
+        and formal_t = Array.of_list (List.map (fun (t,_) -> lltype_of_typ t) fdecl.A.formals) in
+        let ftype = L.function_type (lltype_of_typ fdecl.A.typ) formal_t in
+        Hashtbl.add tbl name (L.define_function name ftype the_module, fdecl); tbl in
+    let _ = List.fold_left function_decl function_decls functions in	
+
+    let anonfunc_decls = Hashtbl.create 8 in 
+    let anonfunc_decl fdecl =
+        let name = "____ReSeRvEd_AnOnYmOuS_fUnC__" ^
+                    (string_of_int ((Hashtbl.length anonfunc_decls) + 1))
+        and formal_t = Array.of_list (List.map (fun (t,_) -> lltype_of_typ t) fdecl.A.formals) in
+        let ftype = L.function_type (lltype_of_typ fdecl.A.typ) formal_t in
+        let fp = L.define_function name ftype the_module in
+        Hashtbl.add anonfunc_decls name (fp, fdecl); fp in
 
 	(* built-in functions *)
     let extfunc_draw_def_t = L.var_arg_function_type i32_t [||] in
@@ -177,7 +186,7 @@ let translate (functions, statements) =
                                     let p_v'' = L.build_add p_v' b_v' "tmp" env.builder in
                                       L.build_add p_v'' a_v "tmp" env.builder
       | A.Id id -> (try load_var env id
-                    with Not_found -> fst (StringMap.find id function_decls))
+                    with Not_found -> fst (Hashtbl.find function_decls id))
 	  | A.Noexpr -> L.const_int i32_t 0
 	  | A.Binop (e1, op, e2) -> 
             let exp1 = expr env e1
@@ -235,7 +244,6 @@ let translate (functions, statements) =
                   | _ -> ignore(expr env (A.Assign(e, A.Binop(e, A.Sub, A.IntLit(1))))); exp
 	          )
 	        ) 
-	  (*TODO: AnonFunc, finish Call *)
       | A.Assign(e1, e2) -> let e1_id = get_arr_id e1 in
                       let (var, (_, _, fml)) = lookup env e1_id in
                       let e1' = (match e1 with
@@ -311,7 +319,8 @@ let translate (functions, statements) =
         | "size" -> let id = get_arr_id e in
                     let (_, (_, dectr, _ )) = lookup env id in
                       expr env (A.IntLit (decarr_len dectr))
-        )
+        ) 
+      | A.AnonFunc(fdecl) -> anonfunc_decl fdecl
       (* Call external functions *)
       (* int draw() *)
       | A.Call (A.Id("draw"), []) ->
@@ -477,8 +486,7 @@ let translate (functions, statements) =
         add_terminal end_env.builder (L.build_ret (L.const_int i32_t 0))
     in
 
-    let build_function_body fdecl = 
-        let (the_function, _) = StringMap.find fdecl.A.fname function_decls in
+    let build_function_body _ (the_function, fdecl) = 
         let builder = L.builder_at_end context (L.entry_block the_function) in 
         let add_formal m (ty, dectr) p =
             let n = id_of_dectr(dectr) in
@@ -504,5 +512,6 @@ let translate (functions, statements) =
     in
     
     build_main_function (List.rev statements);
-    List.iter build_function_body (List.rev functions);
+    Hashtbl.iter build_function_body function_decls;
+    Hashtbl.iter build_function_body anonfunc_decls;
     the_module
