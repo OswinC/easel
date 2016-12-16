@@ -6,7 +6,7 @@
 #  Compile and check the error of each expected-to-fail test
 
 # Path to the LLVM interpreter
-#LLI="lli"
+LLI="lli"
 #LLI="/usr/local/opt/llvm/bin/lli"
 
 # Path to the easel compiler.  Usually "./easel.native"
@@ -17,7 +17,7 @@ EASEL="./easel.native"
 # Set time limit for all operations
 ulimit -t 30
 
-globallog=testall.log
+globallog=autotest.log
 rm -f $globallog
 error=0
 globalerror=0
@@ -26,7 +26,7 @@ keep=0
 ast=0
 
 Usage() {
-    echo "Usage: testall.sh [options] [.es files]"
+    echo "Usage: autotest.sh [options] [.es files]"
     echo "-k    Keep intermediate files"
     echo "-a    Test AST output"
     echo "-h    Print this help"
@@ -162,11 +162,14 @@ while getopts "hka" c; do
     esac
 done
 
-[ $ast -eq 0 ] && echo "Only supports checking AST with -a option" && exit 10
-
 shift `expr $OPTIND - 1`
 # Parameters appearing after double dash are positional parameters
 [ "$1" = "--" ] && shift
+
+cd glwrap
+make
+cd ..
+make
 
 if [ $# -ge 1 ]
 then
@@ -190,6 +193,9 @@ do
 	    ;;
     esac
 done
+
+./ecc.sh -l hello.es
+./hello
 
 exit $globalerror
 

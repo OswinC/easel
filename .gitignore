@@ -3,3 +3,5 @@ _build
 /test-*.ast
 /test-*.diff
 *.log
+hello
+dumbhello
