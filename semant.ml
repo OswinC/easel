@@ -209,7 +209,7 @@ let check (functions, statements) =
             (* Make sure the property works for the type *)
             (match t with 
               Pix -> (match prp with
-                             "red" | "green" | "blue" -> Int
+                             "red" | "green" | "blue" | "alpha"-> Int
                             | _ -> raise(Failure ("invalid pixel property " ^ prp))) 
             | ArrRef(_, _) -> (match prp with
                              "size" -> Int
