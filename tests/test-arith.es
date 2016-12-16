@@ -26,4 +26,8 @@ a = multiple(2, 3);
 b = divide(9, 3);
 c = mod(10, 3);
 d = exp(3, 4);
+print(a);
+print(b);
+print(c);
+printfl(d);
 
