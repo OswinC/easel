@@ -38,6 +38,6 @@ function int blue(int x, int y) {
     return 255 * (((n - 80.)/800.) ^ .5);
 }
 
-draw(graph(canvas, W, H, function pix (int x, int y) {
+draw_size(graph(canvas, W, H, function pix (int x, int y) {
     return { red(x, y), green(x, y), blue(x, y), 0 };
 }), W, H, 0, 0);
