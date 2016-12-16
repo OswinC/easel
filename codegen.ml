@@ -333,6 +333,11 @@ let translate (functions, statements) =
         let c_ptr = L.build_in_bounds_gep c_llval (zero_arr 3) "cnvstmp" env.builder in
         L.build_call extfunc_do_draw [| c_ptr; L.const_int i32_t w; L.const_int i32_t h;
                                         expr env e2; expr env e3 |] "do_draw" env.builder
+      | A.Call (A.Id("draw"), [e_c; e_w; e_h; e4; e5]) ->
+        let c_llval = expr env e_c in
+        let c_ptr = L.build_in_bounds_gep c_llval (zero_arr 2) "cnvstmp" env.builder in
+        L.build_call extfunc_do_draw [| c_ptr; expr env e_w; expr env e_h;
+                                        expr env e4; expr env e5 |] "do_draw" env.builder
       | A.Call (A.Id("print"), [e]) -> 
         let int_format_str = L.build_global_stringptr "%d\n" "fmt" env.builder in
         L.build_call extfunc_printf [| int_format_str ; (expr env e) |] "printf" env.builder
@@ -463,6 +468,8 @@ let translate (functions, statements) =
                                    L.build_ret e'' env.builder
 			| (A.Float, i32_t) -> let e'' = L.build_sitofp e' float_t "tmp" env.builder in
                                    L.build_ret e'' env.builder
+			| (A.ArrRef(_), _) -> (match e with A.Id(id) -> let (e'', _) = lookup env id in 
+                                   L.build_ret e'' env.builder)
 			| _ -> L.build_ret e' env.builder
             ); env
     in
