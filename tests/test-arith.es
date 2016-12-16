@@ -13,11 +13,10 @@ function int mod(int a, int b)
   return a % b;
 }
 
-function int exp(int a, int b)
+function float exp(float a, int b)
 {
   return a ^ b;
 }
-
 
 int a;
 int b;
