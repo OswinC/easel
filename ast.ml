@@ -92,9 +92,6 @@ and string_of_uop = function
   | Not -> "!"
   | Inc -> "++"
   | Dec -> "--"
-  | UMult -> "**"
-  | UDiv -> "//"
-  | UPow -> "^^"
 
 and string_of_expr = function
     IntLit(l) -> string_of_int l

@@ -154,9 +154,6 @@ let check (functions, statements) =
           | Inc | Dec -> (match t with 
                         Int -> Int
                       | Float -> Float)
-          (*TODO: check **, //, ^^ *)
-          | UMult | UDiv when t = Int -> Int
-          | UPow when t = Int or t = Float -> Float 
           | _ -> raise (Failure ("illegal unary operator " ^ string_of_uop op ^
            string_of_typ t ^ " in " ^ string_of_expr ex))
         )
