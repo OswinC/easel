@@ -1,1 +1,1 @@
-Fatal error: exception Failure("illegal unary operator -pix in int a = -#ff34a6")
+Fatal error: exception Failure("Illegal use of - with pix")
