@@ -6,7 +6,8 @@ function pix foo(pix[][] canvas)
     return canvas[3][4];
 }
 
-function pix bar() {
+function pix bar() 
+{
     return foo(g_c);
 }
 

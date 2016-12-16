@@ -4,7 +4,8 @@ function pix foo(pix[][] canvas)
     return canvas[3][4];
 }
 
-function pix bar() {
+function pix bar() 
+{
     pix l_c[30][20];
     return foo(l_c);
 }

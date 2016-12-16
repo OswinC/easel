@@ -1,4 +1,5 @@
-function int foo() {
+function int foo() 
+{
     int y[10][8];
     y[3][4] = 56; 
     return y[3][4];
