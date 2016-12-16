@@ -86,17 +86,22 @@ let check (functions, statements) =
   report_dup (fun n -> "duplicate function " ^ n)
       (List.map (fun fd -> func_sign fd) functions);
 
-  let func_decls =  List.fold_left (fun m fd -> let formal_types = 
-                        List.map (fun formals -> fst formals) fd.formals in 
-                        ignore(Hashtbl.add globals fd.fname (Func(fd.typ, formal_types))); 
-                        StringMap.add (func_sign fd) fd m)
-    StringMap.empty functions
+  let func_decls = Hashtbl.create 8 in
+  let _ =  List.iter (fun fd -> let formal_types = 
+                List.map (fun formals -> fst formals) fd.formals in 
+                ignore(Hashtbl.add globals fd.fname (Func(fd.typ, formal_types))); 
+                Hashtbl.add func_decls (func_sign fd) fd) functions
+  in
+
+  let func_checked fd =
+      Hashtbl.remove func_decls (func_sign fd);
+      Hashtbl.add func_decls (func_sign fd) { fd with checked = true }
   in
  
   let func_decl func_locals s = (*ignore(StringMap.iter (fun f _ -> print_endline f) func_decls);*)
             try StringMap.find s func_locals
       with Not_found ->
-          try StringMap.find s func_decls
+          try Hashtbl.find func_decls s
           with Not_found -> raise (Failure ("unrecognized function " ^ s))
   in
 
@@ -198,7 +203,7 @@ let check (functions, statements) =
                 (Failure ("illegal actual argument found " ^ string_of_typ et ^
                 " expected " ^ string_of_typ bt ^ " in " ^ string_of_expr e))))
              fd.formals actuals;
-           if not fd.checked then check_func fd else ();
+           if not fd.checked then (func_checked fd; check_func fd) else ();
            fd.typ
           | _ -> raise(Failure(string_of_expr fdectr ^ " is not a valid function to call" )))
       | EleAt(arr, _) as ele-> (match arr with
@@ -241,7 +246,7 @@ let check (functions, statements) =
         let formals = List.fold_left (fun m (typ, dect) -> StringMap.add (string_of_dectr dect) typ m) StringMap.empty func.formals in
         (*ignore (StringMap.iter (fun f _ -> print_endline("Local formals: " ^ f)) formals);*)
 
-        check_stmt formals func_formals func.typ (Block func.body);ignore(func.checked = true)
+        check_stmt formals func_formals func.typ (Block func.body)
 
     and check_vdef l fl t = function
         InitDectr(d, Noexpr) -> typ_of_bind (t, d)
@@ -306,5 +311,5 @@ let check (functions, statements) =
     in
 
     List.iter check_global_stmt (List.rev statements);
-    StringMap.iter (fun _ f -> if not f.checked then check_func f else ()) func_decls
+    Hashtbl.iter (fun _ f -> if not f.checked then (func_checked f; check_func f) else ()) func_decls
 
