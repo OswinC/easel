@@ -368,7 +368,7 @@ let translate (functions, statements) =
         let c_ptr = L.build_in_bounds_gep c_llval (zero_arr 3) "cnvstmp" env.builder in
         L.build_call extfunc_do_draw [| c_ptr; L.const_int i32_t w; L.const_int i32_t h;
                                         expr env e2; expr env e3 |] "do_draw" env.builder
-      | A.Call (A.Id("draw"), [e_c; e_w; e_h; e4; e5]) ->
+      | A.Call (A.Id("draw_size"), [e_c; e_w; e_h; e4; e5]) ->
         let c_llval = expr env e_c in
         let c_ptr = L.build_in_bounds_gep c_llval (zero_arr 2) "cnvstmp" env.builder in
         L.build_call extfunc_do_draw [| c_ptr; expr env e_w; expr env e_h;
