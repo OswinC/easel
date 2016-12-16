@@ -262,7 +262,13 @@ let translate (functions, statements) =
                                       L.build_in_bounds_gep tmpp [|zero; expr env l|] e1_id env.builder
                                     )
                             )
-					  )
+					  
+                          | A.PropAcc(e, s) -> (match s with
+                               "red" -> let v = expr env e
+                                        and shift = L.const_int i32_t 24 in
+                                          L.build_lshr v shift "tmp" env.builder
+                                )
+                          )
 			    and e2' = expr env e2 in
 			    ignore(L.build_store e2' e1' env.builder); e2'
       | A.EleAt(arr, ind) -> let id = get_arr_id arr in
