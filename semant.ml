@@ -32,6 +32,12 @@ let check (functions, statements) =
       else if ((lvalt = Pix && rvalt = Int) || (lvalt = ArrRef(Pix) && rvalt = ArrRef(Int)) || (lvalt = ArrRef(ArrRef(Pix)) && rvalt = ArrRef(ArrRef(Int)))) then lvalt
       else raise err
   in
+  
+  
+  if List.mem "print" (List.map (fun fd -> fd.fname) functions)
+  then raise (Failure ("function print may not be defined")) else ();
+
+
 
   (* Check and build function table *)
   let functions =
@@ -41,6 +47,12 @@ let check (functions, statements) =
         body = []; checked = true }::
         { typ = Void; fname = "draw"; formals = [(Pix, DecArr(DecArr(DecId("canvas"), 0), 0)); (Int, DecId("w")); (Int, DecId("h"))];
         body = []; checked = true }::
+      { typ = Void; fname = "print"; formals =  [(Int, DecId("x"))];
+          body = []; checked = true }::
+      { typ = Void; fname = "printfl"; formals =  [(Float,  DecId("x"))];
+          body = []; checked = true }::
+      { typ = Void; fname = "printp"; formals =  [(Pix,  DecId("x"))];
+          body = []; checked = true }::
       { typ = Float; fname = "pow"; formals = [(Float, DecId("x")); (Float, DecId("y"))];
           body = []; checked = true }::
       { typ = Float; fname = "tan"; formals = [(Float, DecId("x"))];
