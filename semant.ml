@@ -107,6 +107,7 @@ let check (functions, statements) =
         | _ -> raise(Failure ("illegal left value " ^ string_of_expr e))
     in 
 
+  (*unused function*)
     let dimension_of_array e =
       let rec helper dimension = function
         Id(id) -> dimension
@@ -115,7 +116,7 @@ let check (functions, statements) =
     in helper 0 e
 	in
 	
-    
+  (*unused function*)
     let length_of_arrdectr e = match e with
           DecArr(DecId(_), l) -> [l] 
         | DecArr(DecArr(DecId(_),len1),len2)-> [len1;len2]
@@ -225,14 +226,15 @@ let check (functions, statements) =
     and check_func func =
         report_dup (fun n -> "Duplicate formals in function " ^ func.fname) func.formals;
         List.iter (check_void (fun n-> "Formal arguments cannot have a void type" ^ string_of_dectr n)) func.formals;
-        let func_formals = List.fold_left (fun m (typ, dect) -> (match typ with
-                                                                 Func (t,f) -> let form_func_sign = (string_of_dectr dect) ^ 
-                                                                               List.fold_left(fun s fm -> s ^ string_of_typ fm) "" f in
-                                                                               let form_form_bind = List.map (fun fo -> (fo, DecId("novar"))) f in
-                                                                               let fd = {typ = t; fname = string_of_dectr dect; formals = form_form_bind;
-                                                                                         body=[]; checked=true} in
-                                                                               StringMap.add form_func_sign fd m
-                                                               | _ -> m)) StringMap.empty func.formals in
+        let func_formals = List.fold_left (fun m (typ, dect) -> 
+          (match typ with
+             Func (t,f) -> let form_func_sign = (string_of_dectr dect) ^ 
+                           List.fold_left(fun s fm -> s ^ string_of_typ fm) "" f in
+                           let form_form_bind = List.map (fun fo -> (fo, DecId("novar"))) f in
+                           let fd = {typ = t; fname = string_of_dectr dect; formals = form_form_bind;
+                                     body=[]; checked=true} in
+                           StringMap.add form_func_sign fd m
+            | _ -> m)) StringMap.empty func.formals in
         let formals = List.fold_left (fun m (typ, dect) -> StringMap.add (string_of_dectr dect) typ m) StringMap.empty func.formals in
         (*ignore (StringMap.iter (fun f _ -> print_endline("Local formals: " ^ f)) formals);*)
 
