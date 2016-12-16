@@ -1,5 +1,5 @@
-function int foo(float x) {
+function float foo(float x) {
     return x;
 }
 
-print(foo(3.5));
+printfl(foo(3.5));

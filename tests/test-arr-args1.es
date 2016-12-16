@@ -9,4 +9,4 @@ function pix bar() {
     return foo(l_c);
 }
 
-print(bar());
+printp(bar());
