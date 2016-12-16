@@ -94,6 +94,7 @@ let translate (functions, statements) =
     let rec get_arr_id = function
         A.Id(id) -> id
       | A.EleAt(id,_) -> get_arr_id id
+      | A.PropAcc(id,_) -> get_arr_id id
     in
 
     let globals = Hashtbl.create 8 in
@@ -237,10 +238,10 @@ let translate (functions, statements) =
 	        ) 
 	  (*TODO: AnonFunc, finish Call *)
       | A.Assign(e1, e2) -> let e1_id = get_arr_id e1 in
-                      let (var, (_, _, fml)) = lookup env e1_id in
+                      let (var, (ty, _, fml)) = lookup env e1_id in
                       let e1' = (match e1 with
 			            A.Id _ -> var
-                      | A.EleAt(arr, ind) -> (match fml with
+                                  | A.EleAt(arr, ind) -> (match fml with
                                   (* if this array is not declared in formal, simply access it in one gep *)
                                   false ->
                                       (match arr with 
@@ -261,12 +262,17 @@ let translate (functions, statements) =
                             )
 					  
                           | A.PropAcc(e, s) -> (match s with
-                               "red" -> let v = expr env e
-                                        and shift = L.const_int i32_t 24 in
-                                          L.build_lshr v shift "tmp" env.builder
-                                )
+                               "red" -> let clr = L.const_int i32_t 16777215 in
+                                          L.build_and var clr "tmp" env.builder 
+                             )
                           )
-			    and e2' = expr env e2 in
+			    and e2' = (match ty with
+                                pix_t -> let shift = L.const_int i32_t 24 
+                                         and e_v = expr env e2 in
+                                           L.build_shl e_v shift "tmp" env.builder
+                                           (*L.build_or e1' e_v' "tmp" env.builder*)
+                              | _ -> expr env e2 
+                              ) in
 			    ignore(L.build_store e2' e1' env.builder); e2'
       | A.EleAt(arr, ind) -> let id = get_arr_id arr in
           let (var, (_, _, fml)) = lookup env id in
