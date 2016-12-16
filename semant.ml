@@ -142,7 +142,8 @@ let check (functions, statements) =
       | FloatLit _ -> Float
       | BoolLit _ -> Bool
       | PixLit(er, eg, eb, ea)-> (*match el with [e1; e2; e3] -> *)
-        let tr = expr locals er and tg = expr locals eg and tb = expr locals eb and ta = expr locals ea in
+        let tr = expr locals func_locals er and tg = expr locals func_locals eg and
+             tb = expr locals func_locals eb and ta = expr locals func_locals ea in
         if (tr = Int && tg = Int && tb = Int && ta = Int) then Pix
         else raise(Failure ("illegal pix value [" ^ string_of_expr er ^ string_of_expr eg ^ string_of_expr eb ^ string_of_expr ea ^ "]"))
       | ArrLit(el) as arrl ->raise(Failure("Array literals are not currently supported")) (*let t = expr locals func_locals (List.hd el) in
