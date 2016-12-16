@@ -1,5 +1,12 @@
 int SQ_W = 300;
-pix canvas[960][960] = [[0]];
+pix canvas[960][960];
+
+int i;
+int j;
+for (i=0; i<canvas.size; i++) {
+    for(j=0; j<canvas[i].size;j++)
+       canvas[i][j]=0; 
+}
 
 function pix[][] graph(pix[][] canvas, function pix (int, int) painter) {
     int x;
