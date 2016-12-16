@@ -27,10 +27,10 @@ let check (functions, statements) =
   in
 
   (* check that rvalue type can be assigned to lvalue type *)
-  let check_assign lvalt rvalt err =
-      if lvalt = rvalt then lvalt
-      else if ((lvalt = Pix && rvalt = Int) || (lvalt = ArrRef(Pix) && rvalt = ArrRef(Int)) || (lvalt = ArrRef(ArrRef(Pix)) && rvalt = ArrRef(ArrRef(Int)))) then lvalt
-      else raise err
+  let check_assign lvalt rvalt err = match (lvalt, rvalt) with
+        (Pix, Int) | (ArrRef(Pix, _), ArrRef(Int, _)) |
+        (ArrRef(ArrRef(Pix, _), _), ArrRef(ArrRef(Int, _), _)) -> lvalt
+      | (lv, rv) -> if lvalt = rvalt then lvalt else raise err
   in
   
   
@@ -71,7 +71,7 @@ let check (functions, statements) =
 
     let rec typ_of_bind = function
           (t, DecId(_)) -> t
-        | (t, DecArr(d, _)) -> typ_of_bind (ArrRef(t), d)
+        | (t, DecArr(d, _)) -> typ_of_bind (ArrRef(t, 0), d)
     in
 
     let func_sign fd =
@@ -111,45 +111,21 @@ let check (functions, statements) =
           DecId(id) -> id
         | DecArr(d, _) -> id_of_dectr d
     in
-	(*unused function*)
-	(*
-    let rec id_of_lval e = match e with
-          Id(id) -> id
-        | EleAt(arr, _) -> id_of_lval arr
-        | _ -> raise(Failure ("illegal left value " ^ string_of_expr e))
-    in 
-
-  (*unused function*)
-    let dimension_of_array e =
-      let rec helper dimension = function
-        Id(id) -> dimension
-      | EleAt(arr, length) -> helper (dimension + 1) arr
-      | _ -> raise(Failure ("illegal array operation" ^ string_of_expr e))
-    in helper 0 e
-	in
-	
-  (*unused function*)
-    let length_of_arrdectr e = match e with
-          DecArr(DecId(_), l) -> [l] 
-        | DecArr(DecArr(DecId(_),len1),len2)-> [len1;len2]
-        | _ -> raise(Failure ("illegal array operation"))
-    in
-	*)
 
     (* Return the type of an expression or throw an exception *)
     let rec expr locals func_locals = function
         IntLit _ -> Int
       | FloatLit _ -> Float
       | BoolLit _ -> Bool
-      | PixLit(el)->
-        (match el with
-          [e1; e2; e3] -> let t1 = expr locals func_locals e1 and t2 = expr locals func_locals e2 and t3 = expr locals func_locals e3 in
-                          if (t1 = Int && t2 = Int && t3 = Int) then Pix 
-                          else raise(Failure ("illegal pix value [" ^ string_of_expr e1 ^ string_of_expr e2 ^ string_of_expr e3 ^ "]"))
-        | _ -> raise(Failure("Incorrect amount of arguments to use a pix literal")))
-      | ArrLit(el) as arrl ->raise(Failure("Array literals are not currently supported")) (*let t = expr locals func_locals (List.hd el) in
+      | PixLit(er, eg, eb, ea)-> (*match el with [e1; e2; e3] -> *)
+        let tr = expr locals func_locals er and tg = expr locals func_locals eg and
+             tb = expr locals func_locals eb and ta = expr locals func_locals ea in
+        if (tr = Int && tg = Int && tb = Int && ta = Int) then Pix
+        else raise(Failure ("illegal pix value [" ^ string_of_expr er ^ string_of_expr eg ^ string_of_expr eb ^ string_of_expr ea ^ "]"))
+      (*| ArrLit(el) as arrl -> raise(Failure("Array literals are not currently supported"))*)
+                            (*let t = expr locals func_locals (List.hd el) in
                               let rec tm typ = (function
-                                  [] -> ArrRef(typ)
+                                  [] -> ArrRef(typ, 0)
                                 | _ as l -> let h = List.hd l in
                                             if typ = (expr locals func_locals h) then tm typ (List.tl l)
                                             else raise(Failure ("Array types in array literal " ^ string_of_expr arrl ^ " do not match"))) in
@@ -158,7 +134,14 @@ let check (functions, statements) =
       | Id s -> type_of_identifier locals s
       | Binop(e1, op, e2) as e -> let t1 = expr locals func_locals e1 and t2 = expr locals func_locals e2 in
         (match op with
-            Add | Sub | Mult | Div when t1 = Int && t2 = Int -> Int
+            Add | Sub | Mult | Div | Mod -> (match (t1,t2) with 
+                                           (Int,Int) -> Int
+                                         | (Float,Float) -> Float
+                                         | (Float,Int) -> Float
+                                         | (Int, Float) -> Float
+                                         | (_,_) -> raise(Failure("illegal binary operator " ^
+                                                     string_of_typ t1 ^ " " ^ string_of_op op ^ " " ^
+                                                     string_of_typ t2 ^ " in " ^ string_of_expr e)))
           | Pow when (t1 = Int || t1 = Float) && (t2 = Int || t2 = Float) -> Float
           | Equal | Neq when t1 = t2 -> Bool
           | Less | Leq | Greater | Geq when t1 = Int && t2 = Int -> Bool
@@ -172,12 +155,13 @@ let check (functions, statements) =
             Neg -> (match t with 
                         Int -> Int
                       | Float -> Float
-		      | _ -> raise(Failure ("illegal unary value" ^ string_of_expr e)))
+                      | _ -> raise(Failure("Illegal use of " ^ string_of_uop op ^ " with " ^ string_of_typ t)))
           | Not when t = Bool -> Bool
           | Inc | Dec -> (match t with 
                         Int -> Int
                       | Float -> Float
-		      | _ -> raise(Failure ("illegal unary value" ^ string_of_expr e)))
+                      | _ -> raise (Failure ("illegal unary operator " ^ string_of_uop op ^
+                                              string_of_typ t ^ " in " ^ string_of_expr ex)))
           | _ -> raise (Failure ("illegal unary operator " ^ string_of_uop op ^
            string_of_typ t ^ " in " ^ string_of_expr ex))
         )
@@ -211,12 +195,12 @@ let check (functions, statements) =
       | EleAt(arr, _) as ele-> (match arr with
                            EleAt(iarr, _) -> let iat = expr locals func_locals iarr in
                                              (match iat with
-                                               ArrRef(ArrRef(arr_t)) -> arr_t
+                                               ArrRef(ArrRef(arr_t, _), _) -> arr_t
                                              | _ -> raise(Failure (string_of_expr ele ^ " is not a valid array")))
                          | _ -> let iat = expr locals func_locals arr in
                                              (match iat with
-                                               ArrRef(ArrRef(arr_t)) -> ArrRef(arr_t)
-                                             | ArrRef(arr_t) -> arr_t
+                                               ArrRef(ArrRef(arr_t, _), _) -> ArrRef(arr_t, 0)
+                                             | ArrRef(arr_t, _) -> arr_t
                                              | _ -> raise(Failure (string_of_expr ele ^ " is not a valid array"))))
                            
       | PropAcc(e, prp) -> 
@@ -227,7 +211,7 @@ let check (functions, statements) =
               Pix -> (match prp with
                              "red" | "green" | "blue" -> Int
                             | _ -> raise(Failure ("invalid pixel property " ^ prp))) 
-            | ArrRef(_) -> (match prp with
+            | ArrRef(_, _) -> (match prp with
                              "size" -> Int
                             | _ -> raise(Failure ("invalid array property " ^ prp)))
             | _ -> raise(Failure ("type " ^ string_of_typ t ^ "has no valid property " ^ prp)))
@@ -236,17 +220,16 @@ let check (functions, statements) =
                                             Func(func_decl.typ, formal_types)
 
     and check_func func =
-        report_dup (fun n -> "Duplicate formals in function " ^ func.fname) func.formals;
-        List.iter (check_void (fun n-> "Formal arguments cannot have a void type" ^ string_of_dectr n)) func.formals;
-        let func_formals = List.fold_left (fun m (typ, dect) -> 
-          (match typ with
-             Func (t,f) -> let form_func_sign = (string_of_dectr dect) ^ 
-                           List.fold_left(fun s fm -> s ^ string_of_typ fm) "" f in
-                           let form_form_bind = List.map (fun fo -> (fo, DecId("novar"))) f in
-                           let fd = {typ = t; fname = string_of_dectr dect; formals = form_form_bind;
-                                     body=[]; checked=true} in
-                           StringMap.add form_func_sign fd m
-            | _ -> m)) StringMap.empty func.formals in
+        report_dup (fun _ -> "Duplicate formals in function " ^ func.fname) func.formals;
+        List.iter (check_void (fun n -> "Formal arguments cannot have a void type" ^ string_of_dectr n)) func.formals;
+        let func_formals = List.fold_left (fun m (typ, dect) -> (match typ with
+                                                                 Func (t,f) -> let form_func_sign = (string_of_dectr dect) ^ 
+                                                                               List.fold_left(fun s fm -> s ^ string_of_typ fm) "" f in
+                                                                               let form_form_bind = List.map (fun fo -> (fo, DecId("novar"))) f in
+                                                                               let fd = {typ = t; fname = string_of_dectr dect; formals = form_form_bind;
+                                                                                         body=[]; checked=true} in
+                                                                               StringMap.add form_func_sign fd m
+                                                               | _ -> m)) StringMap.empty func.formals in
         let formals = List.fold_left (fun m (typ, dect) -> StringMap.add (string_of_dectr dect) typ m) StringMap.empty func.formals in
         (*ignore (StringMap.iter (fun f _ -> print_endline("Local formals: " ^ f)) formals);*)
 
