@@ -194,7 +194,7 @@ do
     esac
 done
 
-./ecc.sh -l hello.es
+./ecc.sh hello.es
 ./hello
 
 exit $globalerror
