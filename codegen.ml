@@ -468,8 +468,6 @@ let translate (functions, statements) =
                                    L.build_ret e'' env.builder
 			| (A.Float, i32_t) -> let e'' = L.build_sitofp e' float_t "tmp" env.builder in
                                    L.build_ret e'' env.builder
-			| (A.ArrRef(_), _) -> (match e with A.Id(id) -> let (e'', _) = lookup env id in 
-                                   L.build_ret e'' env.builder)
 			| _ -> L.build_ret e' env.builder
             ); env
     in
