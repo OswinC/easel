@@ -163,7 +163,8 @@ let check (functions, statements) =
           | Not when t = Bool -> Bool
           | Inc | Dec -> (match t with 
                         Int -> Int
-                      | Float -> Float)
+                      | Float -> Float
+		      | _ -> raise(Failure ("illegal unary value" ^ string_of_expr e)))
           | _ -> raise (Failure ("illegal unary operator " ^ string_of_uop op ^
            string_of_typ t ^ " in " ^ string_of_expr ex))
         )
