@@ -21,17 +21,13 @@ let translate (functions, statements) =
 	and void_t = L.void_type context
 	and pix_t = L.i32_type context
 	and arr_t t n = L.array_type t n in
-    let rec nd_arr_t t = function
-          1 -> arr_t t 0
-        | n when n > 1 -> arr_t (nd_arr_t t (n - 1)) 0
-        | _ -> raise (Failure "invalid n for nd_arr_t")
-    in
-    let n_ptr_t t = function
+    let n_ptr_t t inner_len = function
           1 -> L.pointer_type t
-        | n when n > 1 -> L.pointer_type (nd_arr_t t (n - 1))
+        | 2 -> L.pointer_type (arr_t t inner_len)
+        (*| n when n > 1 -> L.pointer_type (nd_arr_t t (n - 1))*)
         | _ -> raise (Failure "invalid n for n_ptr_t")
     in
-    let ptr_t t = n_ptr_t t 1 in
+    let ptr_t t = n_ptr_t t 0 1 in
 
     let zero = L.const_int i32_t 0 in
     let rec zero_list = function
@@ -50,10 +46,10 @@ let translate (functions, statements) =
       | A.Func(rt, fts) ->
               let formal_t = Array.of_list (List.map (fun ft -> lltype_of_typ ft) fts) in
               ptr_t (L.function_type (lltype_of_typ rt) formal_t)
-	  | A.ArrRef(A.ArrRef(t)) -> 
+	  | A.ArrRef(A.ArrRef(t, l), _) -> 
               let t' = lltype_of_typ t in 
-              ptr_t (arr_t t' 0)
-	  | A.ArrRef(t) -> 
+              ptr_t (arr_t t' l)
+	  | A.ArrRef(t, _) -> 
               let t' = lltype_of_typ t in 
               ptr_t t'
 
@@ -156,7 +152,8 @@ let translate (functions, statements) =
         else
         (*L.build_in_bounds_gep var (zero_arr dim) id env.builder*)
         let arr_pos = L.build_in_bounds_gep var (zero_arr dim) id env.builder in
-        let arr_ptr_t = n_ptr_t (lltype_of_typ ty) dim in
+        let inner_len = match dectr with A.DecId(_) | A.DecArr(A.DecId(_), _) -> 0 | A.DecArr(d, _) -> decarr_len d in
+        let arr_ptr_t = n_ptr_t (lltype_of_typ ty) inner_len dim in
         L.build_bitcast arr_pos arr_ptr_t id env.builder
      in
 
@@ -337,7 +334,7 @@ let translate (functions, statements) =
         let int_format_str = L.build_global_stringptr "%d\n" "fmt" env.builder in
         L.build_call extfunc_printf [| int_format_str ; (expr env e) |] "printf" env.builder
       | A.Call (A.Id("printp"), [e]) -> 
-        let int_format_str = L.build_global_stringptr "%u\n" "fmt" env.builder in
+        let int_format_str = L.build_global_stringptr "#%x\n" "fmt" env.builder in
         L.build_call extfunc_printf [| int_format_str ; (expr env e) |] "printf" env.builder
 
       | A.Call (A.Id("printfl"), [e]) -> 
