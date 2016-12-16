@@ -99,31 +99,36 @@ let check (functions, statements) =
           DecId(id) -> id
         | DecArr(d, _) -> id_of_dectr d
     in
-
+	(*unused function*)
+	(*
     let rec id_of_lval e = match e with
           Id(id) -> id
         | EleAt(arr, _) -> id_of_lval arr
         | _ -> raise(Failure ("illegal left value " ^ string_of_expr e))
-    in
+    in 
 
     let dimension_of_array e =
       let rec helper dimension = function
         Id(id) -> dimension
       | EleAt(arr, length) -> helper (dimension + 1) arr
+      | _ -> raise(Failure ("illegal array operation" ^ string_of_expr e))
     in helper 0 e
 	in
+	
     
-    let rec length_of_arrdectr = function
-        | DecArr(DecId(_), l) -> [l] 
+    let length_of_arrdectr e = match e with
+          DecArr(DecId(_), l) -> [l] 
         | DecArr(DecArr(DecId(_),len1),len2)-> [len1;len2]
+        | _ -> raise(Failure ("illegal array operation"))
     in
+	*)
 
     (* Return the type of an expression or throw an exception *)
     let rec expr locals func_locals = function
         IntLit _ -> Int
       | FloatLit _ -> Float
       | BoolLit _ -> Bool
-      | PixLit(el)-> (*match el with [e1; e2; e3] -> *)
+      | PixLit(el)->
         (match el with
           [e1; e2; e3] -> let t1 = expr locals func_locals e1 and t2 = expr locals func_locals e2 and t3 = expr locals func_locals e3 in
                           if (t1 = Int && t2 = Int && t3 = Int) then Pix 
@@ -153,7 +158,8 @@ let check (functions, statements) =
       (match op with
             Neg -> (match t with 
                         Int -> Int
-                      | Float -> Float)
+                      | Float -> Float
+		      | _ -> raise(Failure ("illegal unary value" ^ string_of_expr e)))
           | Not when t = Bool -> Bool
           | Inc | Dec -> (match t with 
                         Int -> Int
@@ -217,7 +223,7 @@ let check (functions, statements) =
 
     and check_func func =
         report_dup (fun n -> "Duplicate formals in function " ^ func.fname) func.formals;
-        List.iter (check_void (fun n -> "Formal arguments cannot have a void type" ^ string_of_dectr n)) func.formals;
+        List.iter (check_void (fun n-> "Formal arguments cannot have a void type" ^ string_of_dectr n)) func.formals;
         let func_formals = List.fold_left (fun m (typ, dect) -> (match typ with
                                                                  Func (t,f) -> let form_func_sign = (string_of_dectr dect) ^ 
                                                                                List.fold_left(fun s fm -> s ^ string_of_typ fm) "" f in
@@ -241,7 +247,7 @@ let check (functions, statements) =
 
     and add_locals locals func_locals t initds =
         (*ignore(print_endline("Init Dectrs: "));ignore(List.iter (fun i -> match i with InitDectr(d,e)-> print_endline(string_of_dectr d)) initds);*)
-        List.fold_left (fun m initd -> match initd with InitDectr(d, e) ->
+        List.fold_left (fun m initd -> match initd with InitDectr(d, _) ->
             let tt = check_vdef m func_locals t initd in
             let id = id_of_dectr d in (*ignore(print_endline("ID: " ^ id));*)
             if not (StringMap.mem id m) then StringMap.add id (*fst initd*)tt m 
@@ -271,14 +277,14 @@ let check (functions, statements) =
       | For(e1, e2, e3, st) -> ignore (expr locals func_locals e1); check_bool_expr locals func_locals e2;
                                ignore (expr locals func_locals e3); check_stmt locals func_locals funct st
       | While(p, s) -> check_bool_expr locals func_locals p; check_stmt locals func_locals funct s
-      | Vdef(t, ids) -> raise (Failure ("declaring local variable is only allowed in blocks"))
+      | Vdef(_, _) -> raise (Failure ("declaring local variable is only allowed in blocks"))
     in
 
     (*Only variables defined outside any block are globals*)
     let check_global_stmt = function
         (* initds: init_dectr list *)
         Vdef(t, initds) -> List.iter
-            (fun initd -> match initd with InitDectr(d, e) ->
+            (fun initd -> match initd with InitDectr(d, _) ->
                 let tt = check_vdef StringMap.empty StringMap.empty t initd in
                 let id = id_of_dectr d in
                 if not (Hashtbl.mem globals id) then Hashtbl.add globals id (*fst initd*)tt
