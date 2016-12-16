@@ -1,15 +1,11 @@
-function int fib(int x){
-  int z;
-  if (x < 2) return 1;
+function int fib(int x)
+{
+  if (x < 3)
+      return 1;
   else
-  z = fib(x-1) + fib(x-2);
-  return z;
-
+      return fib(x-1) + fib(x-2); 
 }
 
-
-int x;
-x = 5;
-
+int x = 5;
 print(fib(x));
 
