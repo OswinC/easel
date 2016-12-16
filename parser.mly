@@ -65,7 +65,8 @@ aformals:
 typ:
     prim_typ { $1 }
   | afunc_typ { $1 }
-  | typ LBRCK RBRCK { ArrRef($1) }
+  | typ LBRCK RBRCK { ArrRef($1, 0) }
+  | typ LBRCK INTLIT RBRCK { ArrRef($1, $3) }
 
 prim_typ:
     INT { Int }
