@@ -28,9 +28,10 @@ let check (functions, statements) =
 
   (* check that rvalue type can be assigned to lvalue type *)
   let check_assign lvalt rvalt err = match (lvalt, rvalt) with
-        (Pix, Int) | (ArrRef(Pix, _), ArrRef(Int, _)) |
+        (Pix, Int) | (Int, Pix) | (ArrRef(Pix, _), ArrRef(Int, _)) |
         (ArrRef(ArrRef(Pix, _), _), ArrRef(ArrRef(Int, _), _)) -> lvalt
-      | (lv, rv) -> if lvalt = rvalt then lvalt else raise err
+      | (ArrRef(ArrRef(lv,_),_), ArrRef(ArrRef(rv,_),_)) -> if lv = rv then lvalt else raise err
+      | (lv, rv) -> if lv = rv then lvalt else raise err
   in
   
   
@@ -45,7 +46,9 @@ let check (functions, statements) =
           body = []; checked = true }::
         { typ = Void; fname = "do_draw"; formals = [(Pix, DecArr(DecArr(DecId("canvas"), 0), 0)); (Int, DecId("w")); (Int, DecId("h")); (Int, DecId("x")); (Int, DecId("y"))];
         body = []; checked = true }::
-        { typ = Void; fname = "draw"; formals = [(Pix, DecArr(DecArr(DecId("canvas"), 0), 0)); (Int, DecId("w")); (Int, DecId("h"))];
+        { typ = Void; fname = "draw"; formals = [(Pix, DecArr(DecArr(DecId("canvas"), 0), 0)); (Int, DecId("x")); (Int, DecId("y"))];
+        body = []; checked = true }::
+        { typ = Void; fname = "draw_size"; formals = [(Pix, DecArr(DecArr(DecId("canvas"), 0), 0)); (Int, DecId("w")); (Int, DecId("h")); (Int, DecId("x")); (Int, DecId("y"))];
         body = []; checked = true }::
       { typ = Void; fname = "print"; formals =  [(Int, DecId("x"))];
           body = []; checked = true }::
@@ -70,13 +73,14 @@ let check (functions, statements) =
   in
 
     let rec typ_of_bind = function
-          (t, DecId(_)) -> t
+          (ArrRef(ArrRef(t, _),_),DecId(_)) -> ArrRef(ArrRef(t, 0),0)
+        | (ArrRef(t, _),DecId(_)) -> ArrRef(t, 0)
         | (t, DecArr(d, _)) -> typ_of_bind (ArrRef(t, 0), d)
+        | (t, DecId(_)) -> t
     in
 
     let func_sign fd =
-        fd.fname ^
-        List.fold_left (fun s fm -> s ^ string_of_typ (typ_of_bind fm)) "" fd.formals
+        fd.fname 
     in
 
   report_dup (fun n -> "duplicate function " ^ n)
@@ -89,7 +93,7 @@ let check (functions, statements) =
     StringMap.empty functions
   in
  
-  let func_decl func_locals s = 
+  let func_decl func_locals s = (*ignore(StringMap.iter (fun f _ -> print_endline f) func_decls);*)
             try StringMap.find s func_locals
       with Not_found ->
           try StringMap.find s func_decls
@@ -133,19 +137,25 @@ let check (functions, statements) =
                            
       | Id s -> type_of_identifier locals s
       | Binop(e1, op, e2) as e -> let t1 = expr locals func_locals e1 and t2 = expr locals func_locals e2 in
+        let t = (match (t1,t2) with 
+                                           (Int,Int) | (Int, Pix) | (Pix, Int) -> Int
+                                         | (Pix, Pix) -> Pix
+                                         | (Float,Float) | (Int,Float) | (Float,Int) | (Float, Pix) | (Pix, Float) -> Float
+                                         | (Bool, Bool) -> Bool 
+                                         | (_,_) -> Void) in 
+
         (match op with
-            Add | Sub | Mult | Div | Mod -> (match (t1,t2) with 
-                                           (Int,Int) -> Int
-                                         | (Float,Float) -> Float
-                                         | (Float,Int) -> Float
-                                         | (Int, Float) -> Float
-                                         | (_,_) -> raise(Failure("illegal binary operator " ^
+            Add | Sub | Mult | Div | Mod -> (match t with 
+                                                     Int -> Int
+                                                   | Pix -> Pix
+                                                   | Float -> Float
+                                                   | _ -> (*ignore(print_endline("Bad type: "^ string_of_typ t));*) raise(Failure("illegal binary operator " ^
                                                      string_of_typ t1 ^ " " ^ string_of_op op ^ " " ^
                                                      string_of_typ t2 ^ " in " ^ string_of_expr e)))
-          | Pow when (t1 = Int || t1 = Float) && (t2 = Int || t2 = Float) -> Float
-          | Equal | Neq when t1 = t2 -> Bool
-          | Less | Leq | Greater | Geq when t1 = Int && t2 = Int -> Bool
-          | And | Or when t1 = Bool && t2 = Bool -> Bool
+          | Pow when (t = Int || t = Float) -> Float
+          | Equal | Neq when (t = Int || t = Pix || t=Float) -> Bool
+          | Less | Leq | Greater | Geq when (t = Int || t=Pix || t=Float) -> Bool
+          | And | Or when t = Bool -> Bool
           | _ -> raise (Failure ("illegal binary operator " ^
             string_of_typ t1 ^ " " ^ string_of_op op ^ " " ^
             string_of_typ t2 ^ " in " ^ string_of_expr e))
@@ -160,6 +170,7 @@ let check (functions, statements) =
           | Inc | Dec -> (match t with 
                         Int -> Int
                       | Float -> Float
+                      | Pix -> Pix
                       | _ -> raise (Failure ("illegal unary operator " ^ string_of_uop op ^
                                               string_of_typ t ^ " in " ^ string_of_expr ex)))
           | _ -> raise (Failure ("illegal unary operator " ^ string_of_uop op ^
@@ -175,9 +186,7 @@ let check (functions, statements) =
 
       | Call(fdectr, actuals) as call ->
          (match fdectr with
-           Id fname -> let fsign = fname ^
-                                   List.fold_left (fun s fm -> s ^ string_of_typ (expr locals func_locals fm)) "" actuals in
-                      
+           Id fname -> let fsign = fname in                     
 
          let fd = func_decl func_locals fsign in
          if List.length actuals != List.length fd.formals then
@@ -223,8 +232,7 @@ let check (functions, statements) =
         report_dup (fun _ -> "Duplicate formals in function " ^ func.fname) func.formals;
         List.iter (check_void (fun n -> "Formal arguments cannot have a void type" ^ string_of_dectr n)) func.formals;
         let func_formals = List.fold_left (fun m (typ, dect) -> (match typ with
-                                                                 Func (t,f) -> let form_func_sign = (string_of_dectr dect) ^ 
-                                                                               List.fold_left(fun s fm -> s ^ string_of_typ fm) "" f in
+                                                                 Func (t,f) -> let form_func_sign = (string_of_dectr dect) in
                                                                                let form_form_bind = List.map (fun fo -> (fo, DecId("novar"))) f in
                                                                                let fd = {typ = t; fname = string_of_dectr dect; formals = form_form_bind;
                                                                                          body=[]; checked=true} in
@@ -265,10 +273,16 @@ let check (functions, statements) =
         then raise (Failure ("expected Boolean expression in " ^ string_of_expr e))
         else ()
 
+    and check_return rt funct = match (rt, funct) with
+                              (Float, Pix) | (Pix, Float) | (Pix, Int) | (Int, Pix) | (Float, Int) | (Int, Float) -> true
+                              | (_,_) when rt=funct -> true
+                              | (_,_) -> false
+                                
+
     and check_stmt locals func_locals funct = function
         Block sl -> check_block locals func_locals funct sl
       | Expr e -> ignore (expr locals func_locals e)
-      | Return e -> let t = expr locals func_locals e in if t = funct then () else
+      | Return e -> let t = expr locals func_locals e in if (check_return t funct) then () else
          raise (Failure ("return gives " ^ string_of_typ t ^ " expected " ^
                          string_of_typ funct ^ " in " ^ string_of_expr e))
       | If(p, b1, b2) -> check_bool_expr locals func_locals p; check_stmt locals func_locals funct b1; check_stmt locals func_locals funct b2
