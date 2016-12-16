@@ -146,7 +146,8 @@ let check (functions, statements) =
              tb = expr locals func_locals eb and ta = expr locals func_locals ea in
         if (tr = Int && tg = Int && tb = Int && ta = Int) then Pix
         else raise(Failure ("illegal pix value [" ^ string_of_expr er ^ string_of_expr eg ^ string_of_expr eb ^ string_of_expr ea ^ "]"))
-      | ArrLit(el) as arrl ->raise(Failure("Array literals are not currently supported")) (*let t = expr locals func_locals (List.hd el) in
+      (*| ArrLit(el) as arrl -> raise(Failure("Array literals are not currently supported"))*)
+                            (*let t = expr locals func_locals (List.hd el) in
                               let rec tm typ = (function
                                   [] -> ArrRef(typ, 0)
                                 | _ as l -> let h = List.hd l in
