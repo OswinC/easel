@@ -268,20 +268,33 @@ let translate (functions, statements) =
                                       L.build_in_bounds_gep tmpp [|zero; expr env l|] e1_id env.builder
                                     )
                             )
-					  
-                          | A.PropAcc(e, s) -> (match s with
-                               "red" -> let clr = L.const_int i32_t 16777215 in
-                                          L.build_and var clr "tmp" env.builder 
-                             )
+                          | A.PropAcc(e, s) -> var (* dummy value, real work below *)
                           )
-			    and e2' = (match ty with
-                                pix_t -> let shift = L.const_int i32_t 24 
-                                         and e_v = expr env e2 in
-                                           L.build_shl e_v shift "tmp" env.builder
-                                           (*L.build_or e1' e_v' "tmp" env.builder*)
-                              | _ -> expr env e2 
-                              ) in
-			    ignore(L.build_store e2' e1' env.builder); e2'
+			    and e2' = expr env e2 in
+                            (match e1 with
+                                A.PropAcc(e,s) -> let e_v = expr env e in
+                                                  let e_v'' = (match s with 
+                                    "red" -> let clr = L.const_int i32_t 16777215
+                                             and shift = L.const_int i32_t 24 in 
+                                             let e_v' = L.build_and e_v clr "tmp" env.builder
+                                             and e2_v = L.build_shl e2' shift "tmp" env.builder in
+                                               L.build_or e_v' e2_v "tmp" env.builder
+                                  | "green" -> let clr = L.const_int i32_t 4278255615
+                                               and shift = L.const_int i32_t 16 in
+                                               let e_v' = L.build_and e_v clr "tmp" env.builder
+                                               and e2_v = L.build_shl e2' shift "tmp" env.builder in
+                                                 L.build_or e_v' e2_v "tmp" env.builder
+                                  | "blue" -> let clr = L.const_int i32_t 4294902015
+                                              and shift = L.const_int i32_t 8 in
+                                              let e_v' = L.build_and e_v clr "tmp" env.builder
+                                              and e2_v = L.build_shl e2' shift "tmp" env.builder in
+                                                L.build_or e_v' e2_v "tmp" env.builder
+                                  | "alpha" -> let clr = L.const_int i32_t 4294967040 in
+                                               let e_v' = L.build_and e_v clr "tmp" env.builder in
+                                                 L.build_or e_v' e2' "tmp" env.builder
+                                  ) in ignore(L.build_store e_v'' var env.builder); e_v''
+                              | _ -> ignore(L.build_store e2' e1' env.builder); e2'
+                            )
       | A.EleAt(arr, ind) -> let id = get_arr_id arr in
           let (var, (_, _, fml)) = lookup env id in
           (match fml with
