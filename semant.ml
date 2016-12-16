@@ -111,30 +111,6 @@ let check (functions, statements) =
           DecId(id) -> id
         | DecArr(d, _) -> id_of_dectr d
     in
-	(*unused function*)
-	(*
-    let rec id_of_lval e = match e with
-          Id(id) -> id
-        | EleAt(arr, _) -> id_of_lval arr
-        | _ -> raise(Failure ("illegal left value " ^ string_of_expr e))
-    in 
-
-  (*unused function*)
-    let dimension_of_array e =
-      let rec helper dimension = function
-        Id(id) -> dimension
-      | EleAt(arr, length) -> helper (dimension + 1) arr
-      | _ -> raise(Failure ("illegal array operation" ^ string_of_expr e))
-    in helper 0 e
-	in
-	
-  (*unused function*)
-    let length_of_arrdectr e = match e with
-          DecArr(DecId(_), l) -> [l] 
-        | DecArr(DecArr(DecId(_),len1),len2)-> [len1;len2]
-        | _ -> raise(Failure ("illegal array operation"))
-    in
-	*)
 
     (* Return the type of an expression or throw an exception *)
     let rec expr locals func_locals = function
@@ -158,7 +134,14 @@ let check (functions, statements) =
       | Id s -> type_of_identifier locals s
       | Binop(e1, op, e2) as e -> let t1 = expr locals func_locals e1 and t2 = expr locals func_locals e2 in
         (match op with
-            Add | Sub | Mult | Div when t1 = Int && t2 = Int -> Int
+            Add | Sub | Mult | Div | Mod -> (match (t1,t2) with 
+                                           (Int,Int) -> Int
+                                         | (Float,Float) -> Float
+                                         | (Float,Int) -> Float
+                                         | (Int, Float) -> Float
+                                         | (_,_) -> raise(Failure("illegal binary operator " ^
+                                                     string_of_typ t1 ^ " " ^ string_of_op op ^ " " ^
+                                                     string_of_typ t2 ^ " in " ^ string_of_expr e)))
           | Pow when (t1 = Int || t1 = Float) && (t2 = Int || t2 = Float) -> Float
           | Equal | Neq when t1 = t2 -> Bool
           | Less | Leq | Greater | Geq when t1 = Int && t2 = Int -> Bool
@@ -172,12 +155,13 @@ let check (functions, statements) =
             Neg -> (match t with 
                         Int -> Int
                       | Float -> Float
-		      | _ -> raise(Failure ("illegal unary value" ^ string_of_expr e)))
+                      | _ -> raise(Failure("Illegal use of " ^ string_of_uop op ^ " with " ^ string_of_typ t)))
           | Not when t = Bool -> Bool
           | Inc | Dec -> (match t with 
                         Int -> Int
                       | Float -> Float
-		      | _ -> raise(Failure ("illegal unary value" ^ string_of_expr e)))
+                      | _ -> raise (Failure ("illegal unary operator " ^ string_of_uop op ^
+                                              string_of_typ t ^ " in " ^ string_of_expr ex)))
           | _ -> raise (Failure ("illegal unary operator " ^ string_of_uop op ^
            string_of_typ t ^ " in " ^ string_of_expr ex))
         )
@@ -236,17 +220,16 @@ let check (functions, statements) =
                                             Func(func_decl.typ, formal_types)
 
     and check_func func =
-        report_dup (fun n -> "Duplicate formals in function " ^ func.fname) func.formals;
-        List.iter (check_void (fun n-> "Formal arguments cannot have a void type" ^ string_of_dectr n)) func.formals;
-        let func_formals = List.fold_left (fun m (typ, dect) -> 
-          (match typ with
-             Func (t,f) -> let form_func_sign = (string_of_dectr dect) ^ 
-                           List.fold_left(fun s fm -> s ^ string_of_typ fm) "" f in
-                           let form_form_bind = List.map (fun fo -> (fo, DecId("novar"))) f in
-                           let fd = {typ = t; fname = string_of_dectr dect; formals = form_form_bind;
-                                     body=[]; checked=true} in
-                           StringMap.add form_func_sign fd m
-            | _ -> m)) StringMap.empty func.formals in
+        report_dup (fun _ -> "Duplicate formals in function " ^ func.fname) func.formals;
+        List.iter (check_void (fun n -> "Formal arguments cannot have a void type" ^ string_of_dectr n)) func.formals;
+        let func_formals = List.fold_left (fun m (typ, dect) -> (match typ with
+                                                                 Func (t,f) -> let form_func_sign = (string_of_dectr dect) ^ 
+                                                                               List.fold_left(fun s fm -> s ^ string_of_typ fm) "" f in
+                                                                               let form_form_bind = List.map (fun fo -> (fo, DecId("novar"))) f in
+                                                                               let fd = {typ = t; fname = string_of_dectr dect; formals = form_form_bind;
+                                                                                         body=[]; checked=true} in
+                                                                               StringMap.add form_func_sign fd m
+                                                               | _ -> m)) StringMap.empty func.formals in
         let formals = List.fold_left (fun m (typ, dect) -> StringMap.add (string_of_dectr dect) typ m) StringMap.empty func.formals in
         (*ignore (StringMap.iter (fun f _ -> print_endline("Local formals: " ^ f)) formals);*)
 
