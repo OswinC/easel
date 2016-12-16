@@ -93,7 +93,7 @@ let check (functions, statements) =
     StringMap.empty functions
   in
  
-  let func_decl func_locals s = ignore(StringMap.iter (fun f _ -> print_endline f) func_decls);
+  let func_decl func_locals s = (*ignore(StringMap.iter (fun f _ -> print_endline f) func_decls);*)
             try StringMap.find s func_locals
       with Not_found ->
           try StringMap.find s func_decls
@@ -149,7 +149,7 @@ let check (functions, statements) =
                                                      Int -> Int
                                                    | Pix -> Pix
                                                    | Float -> Float
-                                                   | _ -> ignore(print_endline("Bad type: "^ string_of_typ t)); raise(Failure("Yillegal binary operator " ^
+                                                   | _ -> (*ignore(print_endline("Bad type: "^ string_of_typ t));*) raise(Failure("illegal binary operator " ^
                                                      string_of_typ t1 ^ " " ^ string_of_op op ^ " " ^
                                                      string_of_typ t2 ^ " in " ^ string_of_expr e)))
           | Pow when (t = Int || t = Float) -> Float
