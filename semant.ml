@@ -249,7 +249,7 @@ let check (functions, statements) =
         let lt = typ_of_bind (t, d)
         and rt = expr l fl e in
         check_assign lt rt (Failure ("illegal initialization " ^ string_of_typ lt ^
-        " = " ^ string_of_typ rt ^ " in " ^ string_of_typ t ^ string_of_initdectr initd))
+        " = " ^ string_of_typ rt ^ " in " ^ string_of_typ t ^ " " ^ string_of_initdectr initd))
 
     and add_locals locals func_locals t initds =
         (*ignore(print_endline("Init Dectrs: "));ignore(List.iter (fun i -> match i with InitDectr(d,e)-> print_endline(string_of_dectr d)) initds);*)

@@ -1,1 +1,2 @@
-Fatal error: exception Failure("illegal assignment int = float in int q = x + y")
+Fatal error: exception Failure("illegal initialization int = float in int q = x + y")
+
