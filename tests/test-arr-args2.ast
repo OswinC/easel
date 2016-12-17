@@ -1,4 +1,4 @@
-pix g_c[30][20];
+
 
 function pix foo(pix[][] canvas)
 {
@@ -10,5 +10,5 @@ function pix bar()
 {
     return foo(g_c);
 }
-
+pix g_c[30][20];
 print(bar());
