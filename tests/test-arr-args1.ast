@@ -1,4 +1,4 @@
-function pix foo(pix[][] canvas)
+function pix foo(pix[30][] canvas)
 {
     canvas[3][4] = 56;
     return canvas[3][4];
