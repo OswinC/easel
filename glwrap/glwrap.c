@@ -47,6 +47,7 @@ int do_draw(int *canvas, int w, int h, int x, int y) {
 
     // initialize the glut system and create a window
     glutInitWindowSize(W, H);
+    glutInitWindowPosition(x, y);
     glutInit(&fake_argc, fake_argv);
     glutInitDisplayMode(GLUT_RGB | GLUT_DOUBLE);
     glutCreateWindow(fake_argv[0]);
