@@ -166,17 +166,17 @@ shift `expr $OPTIND - 1`
 # Parameters appearing after double dash are positional parameters
 [ "$1" = "--" ] && shift
 
-cd glwrap
-make
-cd ..
-make
-
 if [ $# -ge 1 ]
 then
     files=$@
 else
     files="tests/test-*.es tests/fail-*.es"
 fi
+
+cd glwrap
+make
+cd ..
+make
 
 for file in $files
 do
