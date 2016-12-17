@@ -3,7 +3,7 @@ pix pix1;
 pix pix2;
 pix pix3;
 a = 255;
-pix1 = #ff000000;
+pix1 = 4278190080;
 pix2 = {255, 255, 255, 0};
 pix3.red = 255;
 pix3.green = 0;
