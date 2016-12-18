@@ -39,5 +39,9 @@ function int blue(int x, int y) {
 }
 
 draw_size(graph(canvas, W, H, function pix (int x, int y) {
-    return { red(x, y), green(x, y), blue(x, y), 0 };
-}), W, H, 0, 0);
+    pix p = 0;
+    p.red = red(x, y);
+    p.green = green(x, y);
+    p.blue = blue(x, y);
+    return p;
+}), W, H, 200, 0);

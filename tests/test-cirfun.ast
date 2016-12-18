@@ -17,9 +17,9 @@ return tan(c);
 float a;
 float b;
 float c;
-a = sinn(0.0);
-b = coss(0.0);
-c = tann(0.0);
+a = sinn(0.);
+b = coss(0.);
+c = tann(0.);
 
 printfl(a);
 printfl(b);
