@@ -379,6 +379,10 @@ let translate (functions, statements) =
       | A.Call (A.Id("printp"), [e]) -> 
         let int_format_str = L.build_global_stringptr "#%x\n" "fmt" env.builder in
         L.build_call extfunc_printf [| int_format_str ; (expr env e) |] "printf" env.builder
+      | A.Call (A.Id("printb"), [e]) -> 
+        let int_format_str = L.build_global_stringptr "%d\n" "fmt" env.builder in
+        L.build_call extfunc_printf [| int_format_str ; (expr env e) |] "printf" env.builder
+
 
       | A.Call (A.Id("printfl"), [e]) -> 
         let float_format_str = L.build_global_stringptr "%f\n" "fffmt" env.builder in
