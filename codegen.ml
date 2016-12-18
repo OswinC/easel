@@ -237,7 +237,9 @@ let translate (functions, statements) =
 	        let exp = expr env e in
                 let typ = L.string_of_lltype (L.type_of exp) in
 	        (match op with
-	    	  A.Neg -> L.build_neg exp "tmp" env.builder
+	    	  A.Neg -> (match typ with
+                          "double" -> L.build_fneg exp "tmp" env.builder
+                        | _ -> L.build_neg exp "tmp" env.builder)
 	        | A.Not -> L.build_not exp "tmp" env.builder
                 | A.Inc -> (match typ with
                     "double" -> ignore(expr env (A.Assign(e, A.Binop(e, A.Add, A.FloatLit(1.0))))); exp
