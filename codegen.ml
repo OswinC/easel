@@ -432,9 +432,15 @@ let translate (functions, statements) =
     in 
 
     let global_var t env = function A.InitDectr(dectr, init) ->
-      let inst = init_var t dectr env init in 
+      let inst = llval_of_dectr t dectr in 
       let n = id_of_dectr dectr in
-      Hashtbl.add globals n (L.define_global n inst the_module, (t, dectr, false)) 
+      Hashtbl.add globals n (L.define_global n inst the_module, (t, dectr, false));
+      if init != A.Noexpr then
+        match dectr with 
+            (* Only store initial values for scalar variables *)
+            A.DecId(id) -> ignore (expr env (A.Assign(A.Id(id), init)))
+        | A.DecArr(_, _) -> ()
+      else ()
     in
 
     let local_var t env = function A.InitDectr(dectr, init) ->
