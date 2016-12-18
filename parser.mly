@@ -7,7 +7,7 @@ open Ast
 %token FUNC
 %token SEMI LPAREN RPAREN LBRCK RBRCK LBRACE RBRACE COMMA
 %token PLUS MINUS TIMES DIVIDE MOD POW ASSIGN NOT
-%token INC DEC UMULT UDIV UPOW DOT
+%token INC DEC DOT
 %token EQ NEQ LT LEQ GT GEQ AND OR
 %token RETURN IF ELSE FOR WHILE INT FLOAT BOOL VOID PIX
 %token <int> INTLIT
@@ -69,7 +69,8 @@ aformals:
 typ:
     prim_typ { $1 }
   | afunc_typ { $1 }
-  | typ LBRCK RBRCK { ArrRef($1) }
+  | typ LBRCK RBRCK { ArrRef($1, 0) }
+  | typ LBRCK INTLIT RBRCK { ArrRef($1, $3) }
 
 prim_typ:
     INT { Int }
@@ -95,7 +96,6 @@ init_dectr:
 dectr:
     ID { DecId($1) }
   | dectr LBRCK INTLIT RBRCK { DecArr($1, $3) }
-  | dectr LBRCK RBRCK { DecArr($1, 0) }
 
 stmt_list:
     stmt           { [$1] }
@@ -134,9 +134,9 @@ expr:
 assign_expr:
     logic_or_expr                   { $1 }
   | anonfunc                        { $1 }
-  | LBRCK actuals_list RBRCK        { ArrLit(List.rev $2) }
-  | LBRCK RBRCK                     { ArrLit([]) }
-  | LBRACE actuals_list RBRACE      { PixLit(List.rev $2) }
+  /*| LBRCK actuals_list RBRCK        { ArrLit(List.rev $2) }
+  | LBRCK RBRCK                     { ArrLit([]) }*/
+  | LBRACE expr COMMA expr COMMA expr COMMA expr RBRACE { PixLit($2, $4, $6, $8) }
   | postfix_expr ASSIGN assign_expr { Assign($1, $3) }
 
 logic_or_expr:
@@ -188,9 +188,6 @@ postfix_expr:
   | postfix_expr DOT ID { PropAcc($1, $3) }
   | postfix_expr INC { Unop(Inc, $1) }
   | postfix_expr DEC { Unop(Dec, $1) }
-  | postfix_expr UMULT { Unop(UMult, $1) }
-  | postfix_expr UDIV { Unop(UDiv, $1) }
-  | postfix_expr UPOW { Unop(UPow, $1) }
 
 base_expr:
     INTLIT             { IntLit($1) }

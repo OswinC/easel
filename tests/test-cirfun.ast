@@ -1,23 +1,26 @@
-function int sin(int a)
+function float sinn(float a)
 {
 return sin(a);
 }
 
-function int cos(int b)
+function float coss(float b)
 {
 return cos(b);
 }
 
-function int tan(int c)
+function float tann(float c)
 {
 return tan(c);
 }
 
 
-int a;
-int b;
-int c;
-a = sin(3.14);
-b = cos(3.14);
-c = tan(1);
+float a;
+float b;
+float c;
+a = sinn(0.);
+b = coss(0.);
+c = tann(0.);
 
+printfl(a);
+printfl(b);
+printfl(c);

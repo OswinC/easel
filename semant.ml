@@ -27,10 +27,11 @@ let check (functions, statements) =
   in
 
   (* check that rvalue type can be assigned to lvalue type *)
-  let check_assign lvalt rvalt err =
-      if lvalt = rvalt then lvalt
-      else if ((lvalt = Pix && rvalt = Int) || (lvalt = ArrRef(Pix) && rvalt = ArrRef(Int)) || (lvalt = ArrRef(ArrRef(Pix)) && rvalt = ArrRef(ArrRef(Int)))) then lvalt
-      else raise err
+  let check_assign lvalt rvalt err = match (lvalt, rvalt) with
+        (Pix, Int) | (Int, Pix) | (ArrRef(Pix, _), ArrRef(Int, _)) |
+        (ArrRef(ArrRef(Pix, _), _), ArrRef(ArrRef(Int, _), _)) -> lvalt
+      | (ArrRef(ArrRef(lv,_),_), ArrRef(ArrRef(rv,_),_)) -> if lv = rv then lvalt else raise err
+      | (lv, rv) -> if lv = rv then lvalt else raise err
   in
   
   
@@ -45,7 +46,9 @@ let check (functions, statements) =
           body = []; checked = true }::
         { typ = Void; fname = "do_draw"; formals = [(Pix, DecArr(DecArr(DecId("canvas"), 0), 0)); (Int, DecId("w")); (Int, DecId("h")); (Int, DecId("x")); (Int, DecId("y"))];
         body = []; checked = true }::
-        { typ = Void; fname = "draw"; formals = [(Pix, DecArr(DecArr(DecId("canvas"), 0), 0)); (Int, DecId("w")); (Int, DecId("h"))];
+        { typ = Void; fname = "draw"; formals = [(Pix, DecArr(DecArr(DecId("canvas"), 0), 0)); (Int, DecId("x")); (Int, DecId("y"))];
+        body = []; checked = true }::
+        { typ = Void; fname = "draw_size"; formals = [(Pix, DecArr(DecArr(DecId("canvas"), 0), 0)); (Int, DecId("w")); (Int, DecId("h")); (Int, DecId("x")); (Int, DecId("y"))];
         body = []; checked = true }::
       { typ = Void; fname = "print"; formals =  [(Int, DecId("x"))];
           body = []; checked = true }::
@@ -53,6 +56,9 @@ let check (functions, statements) =
           body = []; checked = true }::
       { typ = Void; fname = "printp"; formals =  [(Pix,  DecId("x"))];
           body = []; checked = true }::
+      { typ = Void; fname = "printb"; formals =  [(Bool,  DecId("x"))];
+          body = []; checked = true }::
+
       { typ = Float; fname = "pow"; formals = [(Float, DecId("x")); (Float, DecId("y"))];
           body = []; checked = true }::
       { typ = Float; fname = "tan"; formals = [(Float, DecId("x"))];
@@ -70,29 +76,35 @@ let check (functions, statements) =
   in
 
     let rec typ_of_bind = function
-          (t, DecId(_)) -> t
-        | (t, DecArr(d, _)) -> typ_of_bind (ArrRef(t), d)
+          (ArrRef(ArrRef(t, _),_),DecId(_)) -> ArrRef(ArrRef(t, 0),0)
+        | (ArrRef(t, _),DecId(_)) -> ArrRef(t, 0)
+        | (t, DecArr(d, _)) -> typ_of_bind (ArrRef(t, 0), d)
+        | (t, DecId(_)) -> t
     in
 
     let func_sign fd =
-        fd.fname ^
-        List.fold_left (fun s fm -> s ^ string_of_typ (typ_of_bind fm)) "" fd.formals
+        fd.fname 
     in
 
   report_dup (fun n -> "duplicate function " ^ n)
       (List.map (fun fd -> func_sign fd) functions);
 
-  let func_decls =  List.fold_left (fun m fd -> let formal_types = 
-                        List.map (fun formals -> fst formals) fd.formals in 
-                        ignore(Hashtbl.add globals fd.fname (Func(fd.typ, formal_types))); 
-                        StringMap.add (func_sign fd) fd m)
-    StringMap.empty functions
+  let func_decls = Hashtbl.create 8 in
+  let _ =  List.iter (fun fd -> let formal_types = 
+                List.map (fun formals -> fst formals) fd.formals in 
+                ignore(Hashtbl.add globals fd.fname (Func(fd.typ, formal_types))); 
+                Hashtbl.add func_decls (func_sign fd) fd) functions
+  in
+
+  let func_checked fd =
+      Hashtbl.remove func_decls (func_sign fd);
+      Hashtbl.add func_decls (func_sign fd) { fd with checked = true }
   in
  
-  let func_decl func_locals s = 
+  let func_decl func_locals s = (*ignore(StringMap.iter (fun f _ -> print_endline f) func_decls);*)
             try StringMap.find s func_locals
       with Not_found ->
-          try StringMap.find s func_decls
+          try Hashtbl.find func_decls s
           with Not_found -> raise (Failure ("unrecognized function " ^ s))
   in
 
@@ -108,48 +120,25 @@ let check (functions, statements) =
     in
 
     let rec id_of_dectr = function
-          DecId(id) -> id
-        | DecArr(d, _) -> id_of_dectr d
+        DecArr(DecArr(DecArr(_, _),_),_) -> raise(Failure("Matrices of greater than 2 dimensions are not supported in easel."))
+      | DecArr(d, _) -> id_of_dectr d
+      | DecId(id) -> id
     in
-	(*unused function*)
-	(*
-    let rec id_of_lval e = match e with
-          Id(id) -> id
-        | EleAt(arr, _) -> id_of_lval arr
-        | _ -> raise(Failure ("illegal left value " ^ string_of_expr e))
-    in 
-
-  (*unused function*)
-    let dimension_of_array e =
-      let rec helper dimension = function
-        Id(id) -> dimension
-      | EleAt(arr, length) -> helper (dimension + 1) arr
-      | _ -> raise(Failure ("illegal array operation" ^ string_of_expr e))
-    in helper 0 e
-	in
-	
-  (*unused function*)
-    let length_of_arrdectr e = match e with
-          DecArr(DecId(_), l) -> [l] 
-        | DecArr(DecArr(DecId(_),len1),len2)-> [len1;len2]
-        | _ -> raise(Failure ("illegal array operation"))
-    in
-	*)
 
     (* Return the type of an expression or throw an exception *)
     let rec expr locals func_locals = function
         IntLit _ -> Int
       | FloatLit _ -> Float
       | BoolLit _ -> Bool
-      | PixLit(el)->
-        (match el with
-          [e1; e2; e3] -> let t1 = expr locals func_locals e1 and t2 = expr locals func_locals e2 and t3 = expr locals func_locals e3 in
-                          if (t1 = Int && t2 = Int && t3 = Int) then Pix 
-                          else raise(Failure ("illegal pix value [" ^ string_of_expr e1 ^ string_of_expr e2 ^ string_of_expr e3 ^ "]"))
-        | _ -> raise(Failure("Incorrect amount of arguments to use a pix literal")))
-      | ArrLit(el) as arrl ->raise(Failure("Array literals are not currently supported")) (*let t = expr locals func_locals (List.hd el) in
+      | PixLit(er, eg, eb, ea)-> (*match el with [e1; e2; e3] -> *)
+        let tr = expr locals func_locals er and tg = expr locals func_locals eg and
+             tb = expr locals func_locals eb and ta = expr locals func_locals ea in
+        if (tr = Int && tg = Int && tb = Int && ta = Int) then Pix
+        else raise(Failure ("illegal pix value [" ^ string_of_expr er ^ string_of_expr eg ^ string_of_expr eb ^ string_of_expr ea ^ "]"))
+      (*| ArrLit(el) as arrl -> raise(Failure("Array literals are not currently supported"))*)
+                            (*let t = expr locals func_locals (List.hd el) in
                               let rec tm typ = (function
-                                  [] -> ArrRef(typ)
+                                  [] -> ArrRef(typ, 0)
                                 | _ as l -> let h = List.hd l in
                                             if typ = (expr locals func_locals h) then tm typ (List.tl l)
                                             else raise(Failure ("Array types in array literal " ^ string_of_expr arrl ^ " do not match"))) in
@@ -157,12 +146,25 @@ let check (functions, statements) =
                            
       | Id s -> type_of_identifier locals s
       | Binop(e1, op, e2) as e -> let t1 = expr locals func_locals e1 and t2 = expr locals func_locals e2 in
+        let t = (match (t1,t2) with 
+                                           (Int,Int) | (Int, Pix) | (Pix, Int) -> Int
+                                         | (Pix, Pix) -> Pix
+                                         | (Float,Float) | (Int,Float) | (Float,Int) | (Float, Pix) | (Pix, Float) -> Float
+                                         | (Bool, Bool) -> Bool 
+                                         | (_,_) -> Void) in 
+
         (match op with
-            Add | Sub | Mult | Div when t1 = Int && t2 = Int -> Int
-          | Pow when (t1 = Int || t1 = Float) && (t2 = Int || t2 = Float) -> Float
-          | Equal | Neq when t1 = t2 -> Bool
-          | Less | Leq | Greater | Geq when t1 = Int && t2 = Int -> Bool
-          | And | Or when t1 = Bool && t2 = Bool -> Bool
+            Add | Sub | Mult | Div | Mod -> (match t with 
+                                                     Int -> Int
+                                                   | Pix -> Pix
+                                                   | Float -> Float
+                                                   | _ -> (*ignore(print_endline("Bad type: "^ string_of_typ t));*) raise(Failure("illegal binary operator " ^
+                                                     string_of_typ t1 ^ " " ^ string_of_op op ^ " " ^
+                                                     string_of_typ t2 ^ " in " ^ string_of_expr e)))
+          | Pow when (t = Int || t = Float) -> Float
+          | Equal | Neq when (t = Int || t = Pix || t=Float) -> Bool
+          | Less | Leq | Greater | Geq when (t = Int || t=Pix || t=Float) -> Bool
+          | And | Or when t = Bool -> Bool
           | _ -> raise (Failure ("illegal binary operator " ^
             string_of_typ t1 ^ " " ^ string_of_op op ^ " " ^
             string_of_typ t2 ^ " in " ^ string_of_expr e))
@@ -172,12 +174,14 @@ let check (functions, statements) =
             Neg -> (match t with 
                         Int -> Int
                       | Float -> Float
-		      | _ -> raise(Failure ("illegal unary value" ^ string_of_expr e)))
+                      | _ -> raise(Failure("Illegal use of " ^ string_of_uop op ^ " with " ^ string_of_typ t)))
           | Not when t = Bool -> Bool
           | Inc | Dec -> (match t with 
                         Int -> Int
                       | Float -> Float
-		      | _ -> raise(Failure ("illegal unary value" ^ string_of_expr e)))
+                      | Pix -> Pix
+                      | _ -> raise (Failure ("illegal unary operator " ^ string_of_uop op ^
+                                              string_of_typ t ^ " in " ^ string_of_expr ex)))
           | _ -> raise (Failure ("illegal unary operator " ^ string_of_uop op ^
            string_of_typ t ^ " in " ^ string_of_expr ex))
         )
@@ -191,9 +195,7 @@ let check (functions, statements) =
 
       | Call(fdectr, actuals) as call ->
          (match fdectr with
-           Id fname -> let fsign = fname ^
-                                   List.fold_left (fun s fm -> s ^ string_of_typ (expr locals func_locals fm)) "" actuals in
-                      
+           Id fname -> let fsign = fname in                     
 
          let fd = func_decl func_locals fsign in
          if List.length actuals != List.length fd.formals then
@@ -205,18 +207,21 @@ let check (functions, statements) =
                 (Failure ("illegal actual argument found " ^ string_of_typ et ^
                 " expected " ^ string_of_typ bt ^ " in " ^ string_of_expr e))))
              fd.formals actuals;
-           if not fd.checked then check_func fd else ();
+           if not fd.checked then (func_checked fd; check_func fd) else ();
            fd.typ
           | _ -> raise(Failure(string_of_expr fdectr ^ " is not a valid function to call" )))
-      | EleAt(arr, _) as ele-> (match arr with
+      | EleAt(arr, idx) as ele-> let idxt = expr locals func_locals idx in
+                                 if idxt != Int then raise(Failure(string_of_expr idx ^ " of type " ^ string_of_typ idxt ^ " is not a valid array index for " ^ string_of_expr arr))
+                                 else 
+                           (match arr with
                            EleAt(iarr, _) -> let iat = expr locals func_locals iarr in
                                              (match iat with
-                                               ArrRef(ArrRef(arr_t)) -> arr_t
+                                               ArrRef(ArrRef(arr_t, _), _) -> arr_t
                                              | _ -> raise(Failure (string_of_expr ele ^ " is not a valid array")))
                          | _ -> let iat = expr locals func_locals arr in
                                              (match iat with
-                                               ArrRef(ArrRef(arr_t)) -> ArrRef(arr_t)
-                                             | ArrRef(arr_t) -> arr_t
+                                               ArrRef(ArrRef(arr_t, _), _) -> ArrRef(arr_t, 0)
+                                             | ArrRef(arr_t, _) -> arr_t
                                              | _ -> raise(Failure (string_of_expr ele ^ " is not a valid array"))))
                            
       | PropAcc(e, prp) -> 
@@ -225,9 +230,9 @@ let check (functions, statements) =
             (* Make sure the property works for the type *)
             (match t with 
               Pix -> (match prp with
-                             "red" | "green" | "blue" -> Int
+                             "red" | "green" | "blue" | "alpha"-> Int
                             | _ -> raise(Failure ("invalid pixel property " ^ prp))) 
-            | ArrRef(_) -> (match prp with
+            | ArrRef(_, _) -> (match prp with
                              "size" -> Int
                             | _ -> raise(Failure ("invalid array property " ^ prp)))
             | _ -> raise(Failure ("type " ^ string_of_typ t ^ "has no valid property " ^ prp)))
@@ -236,21 +241,19 @@ let check (functions, statements) =
                                             Func(func_decl.typ, formal_types)
 
     and check_func func =
-        report_dup (fun n -> "Duplicate formals in function " ^ func.fname) func.formals;
-        List.iter (check_void (fun n-> "Formal arguments cannot have a void type" ^ string_of_dectr n)) func.formals;
-        let func_formals = List.fold_left (fun m (typ, dect) -> 
-          (match typ with
-             Func (t,f) -> let form_func_sign = (string_of_dectr dect) ^ 
-                           List.fold_left(fun s fm -> s ^ string_of_typ fm) "" f in
-                           let form_form_bind = List.map (fun fo -> (fo, DecId("novar"))) f in
-                           let fd = {typ = t; fname = string_of_dectr dect; formals = form_form_bind;
-                                     body=[]; checked=true} in
-                           StringMap.add form_func_sign fd m
-            | _ -> m)) StringMap.empty func.formals in
+        report_dup (fun _ -> "Duplicate formals in function " ^ func.fname) func.formals;
+        List.iter (check_void (fun n -> "Formal arguments cannot have a void type" ^ string_of_dectr n)) func.formals;
+        let func_formals = List.fold_left (fun m (typ, dect) -> (match typ with
+                                                                 Func (t,f) -> let form_func_sign = (string_of_dectr dect) in
+                                                                               let form_form_bind = List.map (fun fo -> (fo, DecId("novar"))) f in
+                                                                               let fd = {typ = t; fname = string_of_dectr dect; formals = form_form_bind;
+                                                                                         body=[]; checked=true} in
+                                                                               StringMap.add form_func_sign fd m
+                                                               | _ -> m)) StringMap.empty func.formals in
         let formals = List.fold_left (fun m (typ, dect) -> StringMap.add (string_of_dectr dect) typ m) StringMap.empty func.formals in
         (*ignore (StringMap.iter (fun f _ -> print_endline("Local formals: " ^ f)) formals);*)
 
-        check_stmt formals func_formals func.typ (Block func.body);ignore(func.checked = true)
+        check_stmt formals func_formals func.typ (Block func.body)
 
     and check_vdef l fl t = function
         InitDectr(d, Noexpr) -> typ_of_bind (t, d)
@@ -258,7 +261,7 @@ let check (functions, statements) =
         let lt = typ_of_bind (t, d)
         and rt = expr l fl e in
         check_assign lt rt (Failure ("illegal initialization " ^ string_of_typ lt ^
-        " = " ^ string_of_typ rt ^ " in " ^ string_of_typ t ^ string_of_initdectr initd))
+        " = " ^ string_of_typ rt ^ " in " ^ string_of_typ t ^ " " ^ string_of_initdectr initd))
 
     and add_locals locals func_locals t initds =
         (*ignore(print_endline("Init Dectrs: "));ignore(List.iter (fun i -> match i with InitDectr(d,e)-> print_endline(string_of_dectr d)) initds);*)
@@ -282,10 +285,16 @@ let check (functions, statements) =
         then raise (Failure ("expected Boolean expression in " ^ string_of_expr e))
         else ()
 
+    and check_return rt funct = match (rt, funct) with
+                              (Float, Pix) | (Pix, Float) | (Pix, Int) | (Int, Pix) | (Float, Int) | (Int, Float) -> true
+                              | (_,_) when rt=funct -> true
+                              | (_,_) -> false
+                                
+
     and check_stmt locals func_locals funct = function
         Block sl -> check_block locals func_locals funct sl
       | Expr e -> ignore (expr locals func_locals e)
-      | Return e -> let t = expr locals func_locals e in if t = funct then () else
+      | Return e -> let t = expr locals func_locals e in if (check_return t funct) then () else
          raise (Failure ("return gives " ^ string_of_typ t ^ " expected " ^
                          string_of_typ funct ^ " in " ^ string_of_expr e))
       | If(p, b1, b2) -> check_bool_expr locals func_locals p; check_stmt locals func_locals funct b1; check_stmt locals func_locals funct b2
@@ -309,5 +318,5 @@ let check (functions, statements) =
     in
 
     List.iter check_global_stmt (List.rev statements);
-    StringMap.iter (fun _ f -> if not f.checked then check_func f else ()) func_decls
+    Hashtbl.iter (fun _ f -> if not f.checked then (func_checked f; check_func f) else ()) func_decls
 

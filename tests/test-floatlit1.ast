@@ -7,3 +7,13 @@ float e = 30000.;
 float f = 330000.;
 float g = 3.3e-05;
 float h = 3.3e-15;
+
+printfl(pi);
+printfl(a);
+printfl(b);
+printfl(c);
+printfl(d);
+printfl(e);
+printfl(f);
+printfl(g);
+printfl(h);

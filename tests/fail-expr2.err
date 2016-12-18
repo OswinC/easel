@@ -1,1 +1,2 @@
-Fatal error: exception Failure("illegal binar operator int + bool in a + b")
+Fatal error: exception Failure("illegal binary operator bool + bool in b + false")
+
