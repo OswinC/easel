@@ -210,7 +210,10 @@ let check (functions, statements) =
            if not fd.checked then (func_checked fd; check_func fd) else ();
            fd.typ
           | _ -> raise(Failure(string_of_expr fdectr ^ " is not a valid function to call" )))
-      | EleAt(arr, _) as ele-> (match arr with
+      | EleAt(arr, idx) as ele-> let idxt = expr locals func_locals idx in
+                                 if idxt != Int then raise(Failure(string_of_expr idx ^ " of type " ^ string_of_typ idxt ^ " is not a valid array index for " ^ string_of_expr arr))
+                                 else 
+                           (match arr with
                            EleAt(iarr, _) -> let iat = expr locals func_locals iarr in
                                              (match iat with
                                                ArrRef(ArrRef(arr_t, _), _) -> arr_t
