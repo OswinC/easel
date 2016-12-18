@@ -17,7 +17,6 @@ and expr =
     IntLit of int
   | FloatLit of float
   | BoolLit of bool
-  (*| ArrLit of expr list*)
   | PixLit of expr * expr * expr * expr
   | Id of string
   | Binop of expr * op * expr
