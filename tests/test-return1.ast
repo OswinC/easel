@@ -1,4 +1,5 @@
-function float foo(float x) {
+function float foo(float x) 
+{
     return x;
 }
 
