@@ -1,0 +1,3 @@
+Use of instruction is not an instruction!
+  %tmp1 = add i32 %a, %tmp
+LLVM ERROR: Broken module found, compilation aborted!
