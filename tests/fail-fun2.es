@@ -1,4 +1,4 @@
-function int add(int a, int b, int a){
+function int add(int a, int b, int a){ /* function should not accept duplicate formals */
     return a + b;
 }
 

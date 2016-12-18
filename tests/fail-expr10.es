@@ -1,2 +1,2 @@
 int a[2];
-print(a.length);
+print(a.length);/* array does not have property length*/
