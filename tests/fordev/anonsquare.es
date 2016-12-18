@@ -12,7 +12,7 @@ function pix[][] graph(pix[][] canvas, function pix (int, int) painter) {
 }
 
 draw(graph(canvas, function pix (int x, int y) {
-    pix red = #ff0000, white = #0;
+    pix red = #ff000000, white = #0;
     int x_lb = canvas[0].min + (canvas[0].size - SQ_W) / 2,
         x_hb = canvas[0].max - (canvas[0].size - SQ_W) / 2,
         y_lb = canvas.min + (canvas.size - SQ_W) / 2,
