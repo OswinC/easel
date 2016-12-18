@@ -29,7 +29,7 @@ let check (functions, statements) =
   (* check that rvalue type can be assigned to lvalue type *)
   let check_assign lvalt rvalt err = match (lvalt, rvalt) with
         (Pix, Int) | (Int, Pix) | (ArrRef(Pix, _), ArrRef(Int, _)) |
-        (ArrRef(ArrRef(Pix, _), _), ArrRef(ArrRef(Int, _), _)) | (Float, Int) -> lvalt
+        (ArrRef(ArrRef(Pix, _), _), ArrRef(ArrRef(Int, _), _)) -> lvalt
       | (ArrRef(ArrRef(lv,_),_), ArrRef(ArrRef(rv,_),_)) -> if lv = rv then lvalt else raise err
       | (lv, rv) -> if lv = rv then lvalt else raise err
   in

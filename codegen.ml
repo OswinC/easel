@@ -237,7 +237,9 @@ let translate (functions, statements) =
 	        let exp = expr env e in
                 let typ = L.string_of_lltype (L.type_of exp) in
 	        (match op with
-	    	  A.Neg -> L.build_neg exp "tmp" env.builder
+	    	  A.Neg -> (match typ with
+                          "double" -> L.build_fneg exp "tmp" env.builder
+                        | _ -> L.build_neg exp "tmp" env.builder)
 	        | A.Not -> L.build_not exp "tmp" env.builder
                 | A.Inc -> (match typ with
                     "double" -> ignore(expr env (A.Assign(e, A.Binop(e, A.Add, A.FloatLit(1.0))))); exp
@@ -432,9 +434,15 @@ let translate (functions, statements) =
     in 
 
     let global_var t env = function A.InitDectr(dectr, init) ->
-      let inst = init_var t dectr env init in 
+      let inst = llval_of_dectr t dectr in 
       let n = id_of_dectr dectr in
-      Hashtbl.add globals n (L.define_global n inst the_module, (t, dectr, false)) 
+      Hashtbl.add globals n (L.define_global n inst the_module, (t, dectr, false));
+      if init != A.Noexpr then
+        match dectr with 
+            (* Only store initial values for scalar variables *)
+            A.DecId(id) -> ignore (expr env (A.Assign(A.Id(id), init)))
+        | A.DecArr(_, _) -> ()
+      else ()
     in
 
     let local_var t env = function A.InitDectr(dectr, init) ->
