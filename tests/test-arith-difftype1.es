@@ -7,4 +7,4 @@ f = 1.3;
 f = x - f;
 
 printfl(f);
-printfl(x- f -f);
+printfl(x - f - f);

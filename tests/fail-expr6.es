@@ -4,5 +4,5 @@ function int add(int x, int y)
 }
 
 int a;
-a = add(5); /*can't pass only 1 argument to this function*/
+a = add(5); /* can't pass only 1 argument to this function */
 print(a);
