@@ -29,7 +29,7 @@ let check (functions, statements) =
   (* check that rvalue type can be assigned to lvalue type *)
   let check_assign lvalt rvalt err = match (lvalt, rvalt) with
         (Pix, Int) | (Int, Pix) | (ArrRef(Pix, _), ArrRef(Int, _)) |
-        (ArrRef(ArrRef(Pix, _), _), ArrRef(ArrRef(Int, _), _)) -> lvalt
+        (ArrRef(ArrRef(Pix, _), _), ArrRef(ArrRef(Int, _), _)) | (Float, Int) -> lvalt
       | (ArrRef(ArrRef(lv,_),_), ArrRef(ArrRef(rv,_),_)) -> if lv = rv then lvalt else raise err
       | (lv, rv) -> if lv = rv then lvalt else raise err
   in
@@ -56,6 +56,9 @@ let check (functions, statements) =
           body = []; checked = true }::
       { typ = Void; fname = "printp"; formals =  [(Pix,  DecId("x"))];
           body = []; checked = true }::
+      { typ = Void; fname = "printb"; formals =  [(Bool,  DecId("x"))];
+          body = []; checked = true }::
+
       { typ = Float; fname = "pow"; formals = [(Float, DecId("x")); (Float, DecId("y"))];
           body = []; checked = true }::
       { typ = Float; fname = "tan"; formals = [(Float, DecId("x"))];
@@ -117,8 +120,9 @@ let check (functions, statements) =
     in
 
     let rec id_of_dectr = function
-          DecId(id) -> id
-        | DecArr(d, _) -> id_of_dectr d
+        DecArr(DecArr(DecArr(_, _),_),_) -> raise(Failure("Matrices of greater than 2 dimensions are not supported in easel."))
+      | DecArr(d, _) -> id_of_dectr d
+      | DecId(id) -> id
     in
 
     (* Return the type of an expression or throw an exception *)
@@ -206,7 +210,10 @@ let check (functions, statements) =
            if not fd.checked then (func_checked fd; check_func fd) else ();
            fd.typ
           | _ -> raise(Failure(string_of_expr fdectr ^ " is not a valid function to call" )))
-      | EleAt(arr, _) as ele-> (match arr with
+      | EleAt(arr, idx) as ele-> let idxt = expr locals func_locals idx in
+                                 if idxt != Int then raise(Failure(string_of_expr idx ^ " of type " ^ string_of_typ idxt ^ " is not a valid array index for " ^ string_of_expr arr))
+                                 else 
+                           (match arr with
                            EleAt(iarr, _) -> let iat = expr locals func_locals iarr in
                                              (match iat with
                                                ArrRef(ArrRef(arr_t, _), _) -> arr_t

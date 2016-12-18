@@ -96,7 +96,6 @@ init_dectr:
 dectr:
     ID { DecId($1) }
   | dectr LBRCK INTLIT RBRCK { DecArr($1, $3) }
-  | dectr LBRCK RBRCK { DecArr($1, 0) }
 
 stmt_list:
     stmt           { [$1] }
