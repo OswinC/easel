@@ -5,7 +5,7 @@ int W, H;
 W = 960;
 H = 720;
 
-function int plaid(int p_w) {
+function void plaid(int p_w) {
     int x, y;
     for (y = 0; y < H; y++) {
         for (x = 0; x < W; x++) {
@@ -13,9 +13,7 @@ function int plaid(int p_w) {
                 canvas[x][y] = COLOR;
         }
     } 
-    return draw(canvas, 0, 0);
 }
 
-int ret; 
-ret = plaid(100);
-return ret;
+plaid(100);
+draw(canvas, 0, 0);
