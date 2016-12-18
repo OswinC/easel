@@ -56,6 +56,9 @@ let check (functions, statements) =
           body = []; checked = true }::
       { typ = Void; fname = "printp"; formals =  [(Pix,  DecId("x"))];
           body = []; checked = true }::
+      { typ = Void; fname = "printb"; formals =  [(Bool,  DecId("x"))];
+          body = []; checked = true }::
+
       { typ = Float; fname = "pow"; formals = [(Float, DecId("x")); (Float, DecId("y"))];
           body = []; checked = true }::
       { typ = Float; fname = "tan"; formals = [(Float, DecId("x"))];
@@ -117,8 +120,9 @@ let check (functions, statements) =
     in
 
     let rec id_of_dectr = function
-          DecId(id) -> id
-        | DecArr(d, _) -> id_of_dectr d
+        DecArr(DecArr(DecArr(_, _),_),_) -> raise(Failure("Matrices of greater than 2 dimensions are not supported in easel."))
+      | DecArr(d, _) -> id_of_dectr d
+      | DecId(id) -> id
     in
 
     (* Return the type of an expression or throw an exception *)
