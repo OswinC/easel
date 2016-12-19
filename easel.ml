@@ -1,3 +1,6 @@
+(* easel.ml *)
+(* By: Oswin, Danielle, Sophie, Tyrus *)
+
 (* Top-level of the easel compiler: scan & parse the input,
    check the resulting AST, generate LLVM IR, and dump the module *)
 

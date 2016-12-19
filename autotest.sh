@@ -1,3 +1,6 @@
+# autotest.sh
+# By: Oswin, Sophie
+
 #!/bin/sh
 
 # Regression testing script for easel
