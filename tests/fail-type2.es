@@ -1,7 +1,6 @@
-int a;
+float b;
 pix c;
 
-a = 6;
+b = 3.0;
 c = 2;
-
-print(a+c);
+printp(b+c);
