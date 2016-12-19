@@ -1,5 +1,2 @@
-int a;
 bool b;
-a = 30;
-b + false;
-a + b; /* can't add an integer and a boolean */
+b + false;/* can't add a boolean and a boolean */

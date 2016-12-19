@@ -5,9 +5,9 @@
 type op = Add | Sub | Mult | Div | Mod | Pow | Equal | Neq | Less | Leq | Greater | Geq |
           And | Or
 
-and uop = Neg | Not | Inc | Dec | UMult | UDiv | UPow
+and uop = Neg | Not | Inc | Dec 
 
-and typ = Int | Float | Bool | Void | Pix | Func of typ * typ list | ArrRef of typ
+and typ = Int | Float | Bool | Void | Pix | Func of typ * typ list | ArrRef of typ * int
 
 and dectr =
     DecId of string
@@ -19,8 +19,7 @@ and expr =
     IntLit of int
   | FloatLit of float
   | BoolLit of bool
-  | ArrLit of expr list
-  | PixLit of expr list
+  | PixLit of expr * expr * expr * expr
   | Id of string
   | Binop of expr * op * expr
   | Unop of uop * expr
@@ -78,7 +77,8 @@ and string_of_typ = function
   | Pix -> "pix"
   | Func(t, tl) ->
     "function " ^ string_of_typ t ^ " (" ^ String.concat ", " (List.map string_of_typ tl) ^ ")"
-  | ArrRef(t) -> string_of_typ t ^ "[]"
+  | ArrRef(t, 0) -> string_of_typ t ^ "[]"
+  | ArrRef(t, l) -> string_of_typ t ^ "[" ^ string_of_int l ^ "]"
 
 and string_of_dectr = function
     DecId(s) -> s
@@ -93,28 +93,22 @@ and string_of_uop = function
   | Not -> "!"
   | Inc -> "++"
   | Dec -> "--"
-  | UMult -> "**"
-  | UDiv -> "//"
-  | UPow -> "^^"
 
 and string_of_expr = function
     IntLit(l) -> string_of_int l
   | FloatLit(f) -> string_of_float f
   | BoolLit(b) -> string_of_bool b
-  | ArrLit(el) -> "[" ^ String.concat ", " (List.map string_of_expr el) ^ "]"
-  | PixLit(el) -> "{" ^ String.concat ", " (List.map string_of_expr el) ^ "}"
+  (*| ArrLit(el) -> "[" ^ String.concat ", " (List.map string_of_expr el) ^ "]"*)
+  | PixLit(e1, e2, e3, e4) -> "{" ^ string_of_expr e1 ^ ", " ^ string_of_expr e2 ^ ", " ^ string_of_expr e3 ^  ", " ^ string_of_expr e4 ^ "}"
   | Id(s) -> s
   | Binop(e1, o, e2) ->
       string_of_expr e1 ^ " " ^ string_of_op o ^ " " ^ string_of_expr e2
   | Unop(o, e) -> 
       match o with
-      Neg -> string_of_uop o ^ string_of_expr e
-    | Not -> string_of_uop o ^ string_of_expr e
-    | Inc -> string_of_expr e ^ string_of_uop o
-    | Dec -> string_of_expr e ^ string_of_uop o
-    | UMult -> string_of_expr e ^ string_of_uop o
-    | UDiv -> string_of_expr e ^ string_of_uop o
-    | UPow -> string_of_expr e ^ string_of_uop o;
+      Neg -> "-" ^ string_of_expr e
+    | Not -> "!" ^ string_of_expr e
+    | Inc -> string_of_expr e ^ "++"
+    | Dec -> string_of_expr e ^ "--";
     ;
   | Assign(v, e) -> string_of_expr v ^ " = " ^ string_of_expr e
   | Call(f, el) ->
