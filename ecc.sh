@@ -1,3 +1,6 @@
+#ecc.sh
+#By: Sophie, Danielle
+
 #!/bin/sh
 
 EASEL="./easel.native"

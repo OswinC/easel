@@ -1,3 +1,5 @@
+(* scanner.mll *)
+(* By: Oswin, Tyrus *)
 (* Ocamllex scanner for easel *)
 
 { open Parser }

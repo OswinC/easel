@@ -1,3 +1,6 @@
+/* parser.mly */
+/* By: Oswin, Tyrus, Danielle */
+
 /* Ocamlyacc parser for easel */
 
 %{

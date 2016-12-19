@@ -1,3 +1,6 @@
+(* codegen.ml *)
+(* By: Oswin, Danielle, Tyrus *)
+
 (* easel code generation *)
 module L = Llvm
 module A = Ast 
@@ -14,16 +17,15 @@ let translate (functions, statements) =
 	let context = L.global_context() in
 	let the_module = L.create_module context "easel"
 	and i32_t = L.i32_type context
-    and i8_t = L.i8_type   context
+        and i8_t = L.i8_type   context
 	and float_t = L.double_type context
 	and i1_t = L.i1_type context
 	and void_t = L.void_type context
 	and pix_t = L.i32_type context
 	and arr_t t n = L.array_type t n in
-    let n_ptr_t t inner_len = function
+        let n_ptr_t t inner_len = function
           1 -> L.pointer_type t
         | 2 -> L.pointer_type (arr_t t inner_len)
-        (*| n when n > 1 -> L.pointer_type (nd_arr_t t (n - 1))*)
         | _ -> raise (Failure "invalid n for n_ptr_t")
     in
     let ptr_t t = n_ptr_t t 0 1 in
@@ -42,7 +44,7 @@ let translate (functions, statements) =
 	  | A.Bool -> i1_t
 	  | A.Void -> void_t
 	  | A.Pix -> pix_t 
-      | A.Func(rt, fts) ->
+          | A.Func(rt, fts) ->
               let formal_t = Array.of_list (List.map (fun ft -> lltype_of_typ ft) fts) in
               ptr_t (L.function_type (lltype_of_typ rt) formal_t)
 	  | A.ArrRef(A.ArrRef(t, l), _) -> 
@@ -51,9 +53,7 @@ let translate (functions, statements) =
 	  | A.ArrRef(t, _) -> 
               let t' = lltype_of_typ t in 
               ptr_t t'
-
-
- 	  (*| A.Func (t, l) -> i32_t(* WRONG RETURN *)*) in 
+        in
 
     let rec lltype_of_dectr t = function
         A.DecArr(d, l) -> arr_t (lltype_of_dectr t d) l
@@ -61,10 +61,6 @@ let translate (functions, statements) =
     in
 
     let rec llval_of_dectr t = function
-        (* 1-D: L.const_array pix_t [|L.const_int pix_t 0; L.const_int pix_t 0; ...|]*)
-        (* 2-D: L.const_array (arr_t pix_t 10) [|... |]*)
-        (* 3-D: L.const_array (arr_t (arr_t 5) 10) [|... |]*)
-        (* Scalar: L.const_int pix_t 0*)
         A.DecArr(d, l) -> L.const_array (lltype_of_dectr t d) (Array.make l (llval_of_dectr t d))
       | A.DecId(_) -> (match t with 
                           A.Int -> L.const_int (lltype_of_typ t) 0 
@@ -106,7 +102,8 @@ let translate (functions, statements) =
         and formal_t = Array.of_list (List.map (fun (t,_) -> lltype_of_typ t) fdecl.A.formals) in
         let ftype = L.function_type (lltype_of_typ fdecl.A.typ) formal_t in
         Hashtbl.add tbl name (L.define_function name ftype the_module, fdecl); tbl in
-    let _ = List.fold_left function_decl function_decls functions in	
+        let _ = List.fold_left function_decl function_decls functions 
+    in	
 
     let anonfunc_decls = Hashtbl.create 8 in 
     let anonfunc_decl fdecl =
@@ -115,9 +112,10 @@ let translate (functions, statements) =
         and formal_t = Array.of_list (List.map (fun (t,_) -> lltype_of_typ t) fdecl.A.formals) in
         let ftype = L.function_type (lltype_of_typ fdecl.A.typ) formal_t in
         let fp = L.define_function name ftype the_module in
-        Hashtbl.add anonfunc_decls name (fp, fdecl); fp in
+          Hashtbl.add anonfunc_decls name (fp, fdecl); fp 
+    in
 
-	(* built-in functions *)
+    (* built-in functions *)
     let extfunc_draw_def_t = L.var_arg_function_type i32_t [||] in
     let extfunc_draw_def = L.declare_function "draw_default" extfunc_draw_def_t the_module in 
     let extfunc_do_draw_t = L.var_arg_function_type i32_t [|ptr_t i32_t; i32_t; i32_t; i32_t; i32_t|] in
@@ -153,15 +151,14 @@ let translate (functions, statements) =
 
     let dectr_arr_dim d = __dectr_arr_dim 0 d in
 
-	let lookup env n = try StringMap.find n env.locals
-                     with Not_found -> Hashtbl.find globals n in
+    let lookup env n = try StringMap.find n env.locals
+        with Not_found -> Hashtbl.find globals n in
 
     let load_var env id =
         let (var, (ty, dectr, _)) = lookup env id in
         let dim = dectr_arr_dim dectr in
         if dim = 0 then L.build_load var id env.builder
         else
-        (*L.build_in_bounds_gep var (zero_arr dim) id env.builder*)
         let arr_pos = L.build_in_bounds_gep var (zero_arr dim) id env.builder in
         let inner_len = match dectr with A.DecId(_) | A.DecArr(A.DecId(_), _) -> 0 | A.DecArr(d, _) -> decarr_len d in
         let arr_ptr_t = n_ptr_t (lltype_of_typ ty) inner_len dim in
@@ -173,7 +170,6 @@ let translate (functions, statements) =
 	    A.IntLit i -> L.const_int i32_t i
 	  | A.FloatLit f -> L.const_float float_t f
 	  | A.BoolLit b -> L.const_int i1_t (if b then 1 else 0)
-	  (*| A.ArrLit a -> (* TODO: ArrLit *)*)
 	  | A.PixLit (r_e, g_e, b_e, a_e) -> let r_v = expr env r_e
                                     and g_v = expr env g_e
                                     and b_v = expr env b_e
@@ -187,7 +183,7 @@ let translate (functions, statements) =
                                     let p_v' = L.build_add r_v' g_v' "tmp" env.builder in
                                     let p_v'' = L.build_add p_v' b_v' "tmp" env.builder in
                                       L.build_add p_v'' a_v "tmp" env.builder
-      | A.Id id -> (try load_var env id
+          | A.Id id -> (try load_var env id
                     with Not_found -> fst (Hashtbl.find function_decls id))
 	  | A.Noexpr -> L.const_int i32_t 0
 	  | A.Binop (e1, op, e2) -> 
@@ -195,16 +191,15 @@ let translate (functions, statements) =
             and exp2 = expr env e2 in
             let typ1 = L.string_of_lltype (L.type_of exp1) 
             and typ2 = L.string_of_lltype (L.type_of exp2) in 
-            let build_op_by_type opf opi =
-                (match (typ1, typ2) with
+            let build_op_by_type opf opi = (match (typ1, typ2) with
                   ("double", "double") -> opf
                 | ("i32", "i32") -> opi
                 | ("double", "i32") ->
                     (fun e1 e2 n bdr -> let e2' = L.build_sitofp e2 float_t n bdr in
-                                        opf e1 e2' "tmp" bdr)
+                                          opf e1 e2' "tmp" bdr)
                 | ("i32", "double") ->
                     (fun e1 e2 n bdr -> let e1' = L.build_sitofp e1 float_t n bdr in
-                                        opf e1' e2 "tmp" bdr)
+                                          opf e1' e2 "tmp" bdr)
                 | _ -> raise (Failure "not a valid type")
                 ) in
             (match op with
@@ -216,12 +211,12 @@ let translate (functions, statements) =
             | A.Pow -> (match (typ1, typ2) with
                           ("double", "double") -> pow_call
                         | ("double", "i32") -> (fun e1 e2 n bdr -> let e2' = L.build_sitofp e2 float_t "tmp" bdr in
-                                                pow_call e1 e2' n bdr)
+                                                  pow_call e1 e2' n bdr)
                         | ("i32", "double") -> (fun e1 e2 n bdr -> let e1' = L.build_sitofp e1 float_t "tmp" bdr in
-                                                pow_call e1' e2 n bdr)
+                                                  pow_call e1' e2 n bdr)
                         | ("i32", "i32") ->    (fun e1 e2 n bdr -> let e1' = L.build_sitofp e1 float_t "tmp" bdr in
                                                                    let e2' = L.build_sitofp e2 float_t "tmp" bdr in
-                                                pow_call e1' e2' n bdr)
+                                                  pow_call e1' e2' n bdr)
                         | _ -> raise (Failure "not valid type for power operator")
                         )
             | A.Equal -> build_op_by_type (L.build_fcmp L.Fcmp.Oeq) (L.build_icmp L.Icmp.Eq)
@@ -244,13 +239,13 @@ let translate (functions, statements) =
                 | A.Inc -> (match typ with
                     "double" -> ignore(expr env (A.Assign(e, A.Binop(e, A.Add, A.FloatLit(1.0))))); exp
                   | _ -> ignore(expr env (A.Assign(e, A.Binop(e, A.Add, A.IntLit(1))))); exp
-                )
+                  )
                 | A.Dec -> (match typ with
                     "double" -> ignore(expr env (A.Assign(e, A.Binop(e, A.Sub, A.FloatLit(1.0))))); exp
                   | _ -> ignore(expr env (A.Assign(e, A.Binop(e, A.Sub, A.IntLit(1))))); exp
 	          )
 	        ) 
-      | A.Assign(e1, e2) -> let e1_id = get_arr_id e1 in
+          | A.Assign(e1, e2) -> let e1_id = get_arr_id e1 in
                       let (var, (_, _, fml)) = lookup env e1_id in
                       let e1' = (match e1 with
 			            A.Id _ -> var
@@ -265,19 +260,17 @@ let translate (functions, statements) =
                                   (* if this array is declared in formal, follow the way that clang does *)
                                 | true ->
                                       (match arr with 
-				                      A.Id _ ->
-                                          let tmpp = L.build_load var e1_id env.builder in
-                                          L.build_in_bounds_gep tmpp [|expr env ind|] e1_id env.builder
-				                    | A.EleAt(_, l) ->
-                                      let tmpp = L.build_load var e1_id env.builder in
-                                      let tmpp = L.build_in_bounds_gep tmpp [|expr env ind|] e1_id env.builder in
-                                      L.build_in_bounds_gep tmpp [|zero; expr env l|] e1_id env.builder
-                                     | _ -> raise (Failure "not a valid expression for array assignment")
+				      A.Id _ -> let tmpp = L.build_load var e1_id env.builder in
+                                                  L.build_in_bounds_gep tmpp [|expr env ind|] e1_id env.builder
+				    | A.EleAt(_, l) -> let tmpp = L.build_load var e1_id env.builder in
+                                                       let tmpp = L.build_in_bounds_gep tmpp [|expr env ind|] e1_id env.builder in
+                                                         L.build_in_bounds_gep tmpp [|zero; expr env l|] e1_id env.builder
+                                    | _ -> raise (Failure "not a valid expression for array assignment")
                                     )
-                            )
+                                  )
                                   | A.PropAcc(_, _) -> var (* dummy value, real work below *)
                                   | _ -> raise (Failure "not valid variable for assignment")
-                                  ) 
+                                 ) 
 			    and e2' = expr env e2 in
                             (match e1 with
                                 A.PropAcc(e,s) -> let e_v = expr env e in
@@ -304,122 +297,114 @@ let translate (functions, statements) =
                                   ) in ignore(L.build_store e_v'' var env.builder); e_v''
                               | _ -> ignore(L.build_store e2' e1' env.builder); e2'
                             )
-      | A.EleAt(arr, ind) -> let id = get_arr_id arr in
-          let (var, (_, _, fml)) = lookup env id in
-          (match fml with
-              false -> (match arr with
-                A.Id _ -> L.build_load (L.build_in_bounds_gep var [|zero; expr env ind|] id env.builder) id env.builder
-              | A.EleAt(_, l) -> L.build_load (L.build_in_bounds_gep var [|zero; expr env ind; expr env l|] id env.builder) id env.builder
-              | _ -> raise (Failure "not a valid array access")
-              )
-            | true -> 
-              (match arr with
-               A.Id _ ->
-               let tmpp = L.build_load var id env.builder in
-               let tmpp = L.build_in_bounds_gep tmpp [|expr env ind|] id env.builder in
-               L.build_load tmpp id env.builder
-             | A.EleAt(_, l) ->
-               let tmpp = L.build_load var id env.builder in
-               let tmpp = L.build_in_bounds_gep tmpp [|expr env ind|] id env.builder in
-               let tmpp = L.build_in_bounds_gep tmpp [|zero; expr env l|] id env.builder in
-               L.build_load tmpp id env.builder
-             | _ -> raise (Failure "not a valid array access")
+          | A.EleAt(arr, ind) -> let id = get_arr_id arr in
+              let (var, (_, _, fml)) = lookup env id in
+              (match fml with
+                false -> (match arr with
+                  A.Id _ -> L.build_load (L.build_in_bounds_gep var [|zero; expr env ind|] id env.builder) id env.builder
+                | A.EleAt(_, l) -> L.build_load (L.build_in_bounds_gep var [|zero; expr env ind; expr env l|] id env.builder) id env.builder
+                | _ -> raise (Failure "not a valid array access")
+                )
+              | true -> (match arr with
+                 A.Id _ -> let tmpp = L.build_load var id env.builder in
+                   let tmpp = L.build_in_bounds_gep tmpp [|expr env ind|] id env.builder in
+                     L.build_load tmpp id env.builder
+               | A.EleAt(_, l) ->
+                 let tmpp = L.build_load var id env.builder in
+                 let tmpp = L.build_in_bounds_gep tmpp [|expr env ind|] id env.builder in
+                 let tmpp = L.build_in_bounds_gep tmpp [|zero; expr env l|] id env.builder in
+                   L.build_load tmpp id env.builder
+               | _ -> raise (Failure "not a valid array access")
+               )
              )
-          )
-      | A.PropAcc(e,s)-> (match s with 
-          "red" -> let v = expr env e 
-                   and shift = L.const_int i32_t 24 in
-                     L.build_lshr v shift "tmp" env.builder
-        | "green" -> let v = expr env e
-                     and shift_r = L.const_int i32_t 24  
-                     and shift_g = L.const_int i32_t 16 in
-                     let r_v = L.build_lshr v shift_r "tmp" env.builder 
-                     and g_v = L.build_lshr v shift_g "tmp" env.builder
-                     and shift = L.const_int i32_t 256 in 
-                     let r_v' = L.build_mul r_v shift "tmp" env.builder in
-                       L.build_sub g_v r_v' "tmp" env.builder
-        | "blue" -> let v = expr env e
-                    and shift_g = L.const_int i32_t 16
-                    and shift_b = L.const_int i32_t 8 in
-                    let g_v = L.build_ashr v shift_g "tmp" env.builder
-                    and b_v = L.build_ashr v shift_b "tmp" env.builder
-                    and shift_g' = L.const_int i32_t 256 in
-                    let g_v' = L.build_mul g_v shift_g' "tmp" env.builder in
-                      L.build_sub b_v g_v' "tmp" env.builder
-        | "alpha" -> let v = expr env e
-                     and shift_b = L.const_int i32_t 8 in
-                     let b_v = L.build_ashr v shift_b "tmp" env.builder
-                     and shift_b' = L.const_int i32_t 256 in
-                     let b_v' = L.build_mul b_v shift_b' "tmp" env.builder in
-                       L.build_sub v b_v' "tmp" env.builder
-        | "size" -> let id = get_arr_id e in
-                    let (_, (_, dectr, _ )) = lookup env id in
-                      expr env (A.IntLit (decarr_len dectr))
-        | _ -> raise (Failure "not a valid property access")
-        ) 
-      | A.AnonFunc(fdecl) -> anonfunc_decl fdecl
-      (* Call external functions *)
-      (* int draw() *)
-      | A.Call (A.Id("draw"), []) ->
-        L.build_call extfunc_draw_def [||] "draw_def" env.builder
-      | A.Call (A.Id("draw"), [A.Id(cid); e2; e3]) ->
-        let (c_llval, (_, c_col, _)) = lookup env cid in
-        let c_row = sub_dectr c_col in
-        let w = decarr_len c_row in
-        let h = decarr_len c_col in
-        let c_ptr = L.build_in_bounds_gep c_llval (zero_arr 3) "cnvstmp" env.builder in
-        L.build_call extfunc_do_draw [| c_ptr; L.const_int i32_t w; L.const_int i32_t h;
+          | A.PropAcc(e,s)-> (match s with 
+              "red" -> let v = expr env e 
+                       and shift = L.const_int i32_t 24 in
+                         L.build_lshr v shift "tmp" env.builder
+            | "green" -> let v = expr env e
+                         and shift_r = L.const_int i32_t 24  
+                         and shift_g = L.const_int i32_t 16 in
+                         let r_v = L.build_lshr v shift_r "tmp" env.builder 
+                         and g_v = L.build_lshr v shift_g "tmp" env.builder
+                         and shift = L.const_int i32_t 256 in 
+                         let r_v' = L.build_mul r_v shift "tmp" env.builder in
+                           L.build_sub g_v r_v' "tmp" env.builder
+            | "blue" -> let v = expr env e
+                        and shift_g = L.const_int i32_t 16
+                        and shift_b = L.const_int i32_t 8 in
+                        let g_v = L.build_ashr v shift_g "tmp" env.builder
+                        and b_v = L.build_ashr v shift_b "tmp" env.builder
+                        and shift_g' = L.const_int i32_t 256 in
+                        let g_v' = L.build_mul g_v shift_g' "tmp" env.builder in
+                          L.build_sub b_v g_v' "tmp" env.builder
+            | "alpha" -> let v = expr env e
+                         and shift_b = L.const_int i32_t 8 in
+                         let b_v = L.build_ashr v shift_b "tmp" env.builder
+                         and shift_b' = L.const_int i32_t 256 in
+                         let b_v' = L.build_mul b_v shift_b' "tmp" env.builder in
+                           L.build_sub v b_v' "tmp" env.builder
+            | "size" -> let id = get_arr_id e in
+                        let (_, (_, dectr, _ )) = lookup env id in
+                          expr env (A.IntLit (decarr_len dectr))
+            | _ -> raise (Failure "not a valid property access")
+            ) 
+          | A.AnonFunc(fdecl) -> anonfunc_decl fdecl
+          (* Call external functions *)
+          | A.Call (A.Id("draw"), []) -> L.build_call extfunc_draw_def [||] "draw_def" env.builder
+          | A.Call (A.Id("draw"), [A.Id(cid); e2; e3]) ->
+              let (c_llval, (_, c_col, _)) = lookup env cid in
+              let c_row = sub_dectr c_col in
+              let w = decarr_len c_row in
+              let h = decarr_len c_col in
+              let c_ptr = L.build_in_bounds_gep c_llval (zero_arr 3) "cnvstmp" env.builder in
+                L.build_call extfunc_do_draw [| c_ptr; L.const_int i32_t w; L.const_int i32_t h;
                                         expr env e2; expr env e3 |] "do_draw" env.builder
-      | A.Call (A.Id("draw_size"), [e_c; e_w; e_h; e4; e5]) ->
-        let c_llval = expr env e_c in
-        let c_ptr = L.build_in_bounds_gep c_llval (zero_arr 2) "cnvstmp" env.builder in
-        L.build_call extfunc_do_draw [| c_ptr; expr env e_w; expr env e_h;
+          | A.Call (A.Id("draw_size"), [e_c; e_w; e_h; e4; e5]) ->
+              let c_llval = expr env e_c in
+              let c_ptr = L.build_in_bounds_gep c_llval (zero_arr 2) "cnvstmp" env.builder in
+                L.build_call extfunc_do_draw [| c_ptr; expr env e_w; expr env e_h;
                                         expr env e4; expr env e5 |] "do_draw" env.builder
-      | A.Call (A.Id("print"), [e]) -> 
-        let int_format_str = L.build_global_stringptr "%d\n" "fmt" env.builder in
-        L.build_call extfunc_printf [| int_format_str ; (expr env e) |] "printf" env.builder
-      | A.Call (A.Id("printp"), [e]) -> 
-        let int_format_str = L.build_global_stringptr "#%x\n" "fmt" env.builder in
-        L.build_call extfunc_printf [| int_format_str ; (expr env e) |] "printf" env.builder
-      | A.Call (A.Id("printb"), [e]) -> 
-        let int_format_str = L.build_global_stringptr "%d\n" "fmt" env.builder in
-        L.build_call extfunc_printf [| int_format_str ; (expr env e) |] "printf" env.builder
-
-
-      | A.Call (A.Id("printfl"), [e]) -> 
-        let float_format_str = L.build_global_stringptr "%f\n" "fffmt" env.builder in
-        L.build_call extfunc_printf [| float_format_str ; (expr env e) |] "printf" env.builder
-        (* TODO: Overloading and passing arrays for function calls *)
-      | A.Call (A.Id("sin"), [e]) ->
-	 L.build_call extfunc_sin [|expr env e|] "sin" env.builder
-      | A.Call (A.Id("cos"), [e]) ->
-         L.build_call extfunc_cos [|expr env e|] "cos" env.builder
-      | A.Call (A.Id("tan"), [e]) ->
-         L.build_call extfunc_tan [|expr env e|] "tan" env.builder
-      | A.Call (A.Id("log"), [b; e]) ->
-         let log_it x = L.build_call extfunc_log [|x|] "tmp_log" env.builder in
-         let promote x = (let ex = expr env x in
-                          let typ = L.string_of_lltype (L.type_of ex) in
-                           (match typ with 
-                            "double" -> log_it ex
-                          | "i32" -> (let pex = L.build_sitofp ex float_t "tmp" env.builder in
-                                     log_it pex)
-                          | _ -> raise (Failure "not a valid type"))) in
-         let base = promote b
-         and sol = promote e in
-         L.build_fdiv (sol) (base) "log" env.builder
-
-      | A.Call (A.Id("rand"), []) -> L.build_call extfunc_rand [||] "rand_call" env.builder
-      | A.Call (A.Id("rand"), [e]) -> L.build_call extfunc_rands [|(expr env e)|] "rand_call" env.builder 
-      | A.Call (A.Id(func), act) -> 
-          let fdef = expr env (A.Id(func)) in 
-          let ret_t = L.string_of_lltype (L.return_type (L.return_type (L.type_of fdef))) in
-          let ret_n = match ret_t with
-              "void" -> ""
-            | _ -> "tmp" in
-          let actuals = List.rev (List.map (expr env) (List.rev act)) in
+          | A.Call (A.Id("print"), [e]) -> 
+              let int_format_str = L.build_global_stringptr "%d\n" "fmt" env.builder in
+                L.build_call extfunc_printf [| int_format_str ; (expr env e) |] "printf" env.builder
+          | A.Call (A.Id("printp"), [e]) -> 
+              let int_format_str = L.build_global_stringptr "#%x\n" "fmt" env.builder in
+                L.build_call extfunc_printf [| int_format_str ; (expr env e) |] "printf" env.builder
+          | A.Call (A.Id("printb"), [e]) -> 
+              let int_format_str = L.build_global_stringptr "%d\n" "fmt" env.builder in
+                L.build_call extfunc_printf [| int_format_str ; (expr env e) |] "printf" env.builder
+          | A.Call (A.Id("printfl"), [e]) -> 
+              let float_format_str = L.build_global_stringptr "%f\n" "fffmt" env.builder in
+                L.build_call extfunc_printf [| float_format_str ; (expr env e) |] "printf" env.builder
+          | A.Call (A.Id("sin"), [e]) ->
+	      L.build_call extfunc_sin [|expr env e|] "sin" env.builder
+          | A.Call (A.Id("cos"), [e]) ->
+              L.build_call extfunc_cos [|expr env e|] "cos" env.builder
+          | A.Call (A.Id("tan"), [e]) ->
+              L.build_call extfunc_tan [|expr env e|] "tan" env.builder
+          | A.Call (A.Id("log"), [b; e]) ->
+              let log_it x = L.build_call extfunc_log [|x|] "tmp_log" env.builder in
+              let promote x = (let ex = expr env x in
+                let typ = L.string_of_lltype (L.type_of ex) in
+                (match typ with 
+                    "double" -> log_it ex
+                  | "i32" -> (let pex = L.build_sitofp ex float_t "tmp" env.builder in
+                               log_it pex)
+                  | _ -> raise (Failure "not a valid type"))) in
+                let base = promote b
+                and sol = promote e in
+                  L.build_fdiv (sol) (base) "log" env.builder
+          | A.Call (A.Id("rand"), []) -> L.build_call extfunc_rand [||] "rand_call" env.builder
+          | A.Call (A.Id("rand"), [e]) -> L.build_call extfunc_rands [|(expr env e)|] "rand_call" env.builder 
+          | A.Call (A.Id(func), act) -> 
+            let fdef = expr env (A.Id(func)) in 
+            let ret_t = L.string_of_lltype (L.return_type (L.return_type (L.type_of fdef))) in
+            let ret_n = match ret_t with
+                "void" -> ""
+              | _ -> "tmp" in
+            let actuals = List.rev (List.map (expr env) (List.rev act)) in
               L.build_call fdef (Array.of_list actuals) ret_n env.builder
-      | A.Call(_,_) -> raise (Failure "not a valid function call")
+          | A.Call(_,_) -> raise (Failure "not a valid function call")
     in
 
     let init_var t dectr env = function 
@@ -428,19 +413,17 @@ let translate (functions, statements) =
       | A.BoolLit b -> expr env (A.BoolLit b)
       | A.PixLit (r, g, b, a) -> expr env (A.PixLit (r,g,b,a))
       | A.Binop (e1, op, e2) -> expr env (A.Binop(e1,op,e2))
-      (*| A.Call (func, act) -> expr env (A.Call(func, act))*)
-      (*| A.ArrLit -> *)
       | _ -> llval_of_dectr t dectr 
     in 
 
     let global_var t env = function A.InitDectr(dectr, init) ->
       let inst = llval_of_dectr t dectr in 
       let n = id_of_dectr dectr in
-      Hashtbl.add globals n (L.define_global n inst the_module, (t, dectr, false));
+        Hashtbl.add globals n (L.define_global n inst the_module, (t, dectr, false));
       if init != A.Noexpr then
         match dectr with 
-            (* Only store initial values for scalar variables *)
-            A.DecId(id) -> ignore (expr env (A.Assign(A.Id(id), init)))
+        (* Only store initial values for scalar variables *)
+          A.DecId(id) -> ignore (expr env (A.Assign(A.Id(id), init)))
         | A.DecArr(_, _) -> ()
       else ()
     in
@@ -469,7 +452,7 @@ let translate (functions, statements) =
         A.Block sl -> List.fold_left stmt env sl
       | A.Expr e -> ignore (expr env e); env
       | A.Vdef (t, initds) ->
-        List.fold_left (local_var t) env (List.rev initds)
+          List.fold_left (local_var t) env (List.rev initds)
       | A.If (pred, then_stmt, else_stmt) ->
           let bool_val = expr env pred in 
 	  let merge_bb = L.append_block context "merge" env.the_func in
@@ -507,10 +490,10 @@ let translate (functions, statements) =
         { env with builder = (L.builder_at_end context merge_bb) }
 
       | A.For (e1, e2, e3, body) -> stmt env
-	      ( A.Block [A.Expr e1 ; A.While (e2, A.Block [body ; A.Expr e3]) ] )
+          ( A.Block [A.Expr e1 ; A.While (e2, A.Block [body ; A.Expr e3]) ] )
 
       | A.Return e -> let e' = expr env e in
-            let e_t = L.type_of e' in
+          let e_t = L.type_of e' in
 			ignore (match (env.ret_typ, e_t) with
 			  (A.Void, _) -> L.build_ret_void env.builder
 			| (A.Int, _) -> let e'' = L.build_fptosi e' i32_t "tmp" env.builder in
@@ -522,7 +505,6 @@ let translate (functions, statements) =
     in
 
     let global_stmt env = function
-        (* initds: init_dectr list *)
           A.Vdef(t, initds) -> List.iter (global_var t env) (List.rev initds); env
         | st -> stmt env st
     in
@@ -544,9 +526,9 @@ let translate (functions, statements) =
         let builder = L.builder_at_end context (L.entry_block the_function) in 
         let add_formal m (ty, dectr) p =
             let n = id_of_dectr(dectr) in
-            L.set_value_name n p;
+              L.set_value_name n p;
             let local = L.build_alloca (lltype_of_typ ty) n builder in
-            ignore (L.build_store p local builder);
+              ignore (L.build_store p local builder);
             (* the third field indicates whether it is a formal *)
             StringMap.add n (local, (ty, dectr, true)) m
         in
