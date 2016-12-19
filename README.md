@@ -6,13 +6,23 @@ The first step in running easel programs is downloading the proper dependencies.
 ```
 $ sudo apt-get install freeglut3 freeglut3-dev libglew-dev gle-graphics
 ``` 
-Run make in the glwrap/ directory and the src/ directory
+Run make in the glwrap/ directory and the top directory to build easel.native
 ```
 $ cd glwrap
 $ make
 $ cd ../
 $ make
 ```
+However, ecc.sh, which wraps the compilation pipeline, is recommended to use
+```
+$ ./ecc.sh
+Usage: ecc.sh [options] <.es files>
+    -c               Compile to executable (default)
+    -l               Output LLVM IR code
+    -a               Output pretty-printing of AST
+    -o <file name>   Specify output file name
+    -h               Print this help
+``` 
 To compile and run a program:
 ```
 $ ./ecc.sh demo/mandelbrot.es
