@@ -1,5 +1,5 @@
-pix canvas[960][720];
-int W = 960, H = 720;
+pix canvas[960][840];
+int W = 960, H = 840;
 
 function void graph(pix[960][] canv, int w, int h, function pix (int, int) painter) {
     int x, y;
