@@ -57,9 +57,14 @@ parser.cmi : ast.cmo
 
 # Building the tarball
 
-TARFILES = ast.ml codegen.ml Makefile easel.ml parser.mly README scanner.mll \
-		   semant.ml testall.sh
+GLWRAP = $(filter-out glwrap/_build, $(wildcard glwrap/*))
 
-easel-llvm.tar.gz : $(TARFILES)
-	cd .. && tar czf easel-llvm/easel-llvm.tar.gz \
-		$(TARFILES:%=easel-llvm/%)
+TESTFILES = $(wildcard tests/test-*.es) $(wildcard tests/test-*.ast) \
+			$(wildcard tests/test-*.out) $(wildcard tests/fail-*.es) \
+			$(wildcard tests/fail-*.err)
+
+TARFILES = ast.ml codegen.ml Makefile easel.ml parser.mly README.md scanner.mll \
+		   semant.ml autotest.sh $(GLWRAP) demo $(TESTFILES)
+
+easel.tar.gz: $(TARFILES)
+	cd .. && tar czf easel/easel.tar.gz $(TARFILES:%=easel/%) && cd -
