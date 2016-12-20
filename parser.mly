@@ -21,6 +21,16 @@ open Ast
 
 %nonassoc NOELSE
 %nonassoc ELSE
+%right ASSIGN
+%left OR
+%left AND
+%left EQ NEQ
+%left LT GT LEQ GEQ
+%left PLUS MINUS
+%left TIMES DIVIDE
+%left MOD POW
+%left INC DEC UMULT UDIV UPOW
+%right NOT NEG
 
 %start program
 %type <Ast.program> program
